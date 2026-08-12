@@ -6,6 +6,7 @@ export type Collection = 'Bridal Royal' | 'Daily Wear' | 'Solitaire Elegance' | 
 export interface UserProfile {
   email: string;
   name: string;
+  avatar?: string;
   address: {
     street: string;
     city: string;
@@ -49,9 +50,28 @@ export interface Banner {
   title: string;
   subtitle: string;
   discountBadge: string;
+  discountTag?: string;
+  image: string;
+  imageUrl?: string;
+  categoryLink?: Category;
+  ctaText: string;
+}
+
+export interface BottomBanner {
+  id?: string;
+  title: string;
+  subtitle: string;
+  discountBadge: string;
   image: string;
   categoryLink?: Category;
   ctaText: string;
+}
+
+export interface CategoryItem {
+  id: string;
+  name: string;
+  image?: string;
+  order?: number;
 }
 
 export interface SchemeInstallment {
@@ -81,6 +101,42 @@ export interface AppVersionInfo {
   updateAvailable: boolean;
   updateMessage: string;
   releaseNotes: string[];
+}
+
+export interface TrustBadge {
+  title: string;
+  subtitle: string;
+  icon?: string;
+}
+
+export interface FooterConfig {
+  trustBadges: TrustBadge[];
+  brandTitle: string;
+  brandDescription: string;
+  officialStoreLabel: string;
+  collectionsTitle: string;
+  collectionsList: string[];
+  customerCareTitle: string;
+  tollFreeText: string;
+  careEmail: string;
+  storeAddress: string;
+  schemeTitle: string;
+  schemeDescription: string;
+  schemeHighlightBox: string;
+  copyrightText: string;
+}
+
+export interface DrawerConfig {
+  headerTitle: string;
+  welcomeSubtitle: string;
+  aboutBtnText: string;
+  schemeBtnTitle: string;
+  schemeBtnSubtitle?: string;
+  whatsappBtnTitle: string;
+  whatsappBtnSubtitle?: string;
+  categorySectionTitle: string;
+  shopForSectionTitle: string;
+  footerTagline: string;
 }
 
 export interface CompanyInfo {

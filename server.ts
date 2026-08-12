@@ -6,8 +6,8 @@ import fs from 'fs';
 import nodemailer from 'nodemailer';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-import { initialGoldRates, initialBanners, initialProducts, initialVersionInfo, initialCompanyInfo } from './src/data/initialData.js';
-import { GoldRates, Banner, Product, AppVersionInfo, GoldScheme, CompanyInfo, UserSyncedData } from './src/types.js';
+import { initialGoldRates, initialBanners, initialBottomBanner, initialCategoryItems, initialProducts, initialVersionInfo, initialCompanyInfo, initialDrawerConfig, initialFooterConfig } from './src/data/initialData.js';
+import { GoldRates, Banner, BottomBanner, CategoryItem, Product, AppVersionInfo, GoldScheme, CompanyInfo, UserSyncedData, DrawerConfig, FooterConfig } from './src/types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,7 +24,9 @@ async function startServer() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   }));
 
-  app.use(express.json());
+  // Increase payload limit to 50mb to support base64 product photo uploads
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // Setup JSON Persistence Directory (writable location for production)
   const DATA_DIR = path.join(process.cwd(), 'data');
@@ -84,10 +86,42 @@ async function startServer() {
     },
   };
 
+  // Default initial categories
+  const initialCategories: string[] = [
+    'Gold',
+    'Diamond',
+    'Silver',
+    'Coins',
+    'Solitaires',
+    'Kundan & Antique',
+    'Mangalsutra',
+  ];
+
   // Load state from JSON files (or fallback & create defaults)
   let currentRates: GoldRates = loadData<GoldRates>('rates.json', { ...initialGoldRates });
   let currentBanners: Banner[] = loadData<Banner[]>('banners.json', [...initialBanners]);
-  let currentProducts: Product[] = loadData<Product[]>('products.json', [...initialProducts]);
+  
+  // Persistent product state handling
+  const deletedProductIds: string[] = loadData<string[]>('deleted-products.json', []);
+  let savedProducts: Product[] = loadData<Product[]>('products.json', []);
+
+  if (savedProducts.length === 0) {
+    savedProducts = [...initialProducts];
+  } else {
+    // Ensure any default product that has NOT been explicitly deleted and is missing from savedProducts is merged
+    for (const initP of initialProducts) {
+      if (!deletedProductIds.includes(initP.id) && !savedProducts.some((sp) => sp.id === initP.id)) {
+        savedProducts.push(initP);
+      }
+    }
+  }
+
+  let currentProducts: Product[] = savedProducts.filter((p) => !deletedProductIds.includes(p.id));
+  saveData('products.json', currentProducts);
+  let currentCategories: any[] = loadData<any[]>('categories.json', [...initialCategoryItems]);
+  let currentBottomBanner: BottomBanner = loadData<BottomBanner>('bottom-banner.json', { ...initialBottomBanner });
+  let currentDrawerConfig: DrawerConfig = loadData<DrawerConfig>('drawer-config.json', { ...initialDrawerConfig });
+  let currentFooterConfig: FooterConfig = loadData<FooterConfig>('footer-config.json', { ...initialFooterConfig });
   let currentVersion: AppVersionInfo = loadData<AppVersionInfo>('version.json', { ...initialVersionInfo });
   let currentCompanyInfo: CompanyInfo = loadData<CompanyInfo>('company-info.json', { ...initialCompanyInfo });
   const userDataStore: Record<string, UserSyncedData> = loadData<Record<string, UserSyncedData>>('user-data.json', {});
@@ -98,52 +132,115 @@ async function startServer() {
     'customer@gmail.com': '7788',
   };
 
-  // Helper function to dispatch OTP via Gmail SMTP (or fallback log in dev)
-  async function sendOtpViaEmail(email: string, otp: string): Promise<{ success: boolean; provider: string; error?: string }> {
+  // Connection-pooled Nodemailer Transporter (Singleton)
+  let cachedTransporter: nodemailer.Transporter | null = null;
+
+  function getEmailTransporter(user: string, pass: string): nodemailer.Transporter {
+    if (!cachedTransporter) {
+      cachedTransporter = nodemailer.createTransport({
+        service: 'gmail',
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
+        rateDelta: 1000,
+        rateLimit: 5,
+        auth: {
+          user,
+          pass,
+        },
+        connectionTimeout: 10000, // 10 second connection timeout for SMTP handshake
+        socketTimeout: 10000,
+      });
+    }
+    return cachedTransporter;
+  }
+
+  // Helper function to dispatch OTP via Email with connection pooling, direct API, and retries
+  async function sendOtpViaEmail(email: string, otp: string, maxAttempts = 2): Promise<{ success: boolean; provider: string; error?: string }> {
     const gmailUser = process.env.GMAIL_USER;
     const gmailPass = process.env.GMAIL_APP_PASSWORD;
+    const resendApiKey = process.env.RESEND_API_KEY;
 
-    if (!gmailUser || !gmailPass) {
-      console.log(`[Email Dev Mode] Verification OTP for ${email} is: ${otp}. Set GMAIL_USER and GMAIL_APP_PASSWORD in environment variables for live Gmail delivery.`);
+    if (!gmailUser && !gmailPass && !resendApiKey) {
+      console.log(`[Email Dev Mode] Verification OTP for ${email} is: ${otp}. Set GMAIL_USER and GMAIL_APP_PASSWORD or RESEND_API_KEY in env for live delivery.`);
       return { success: true, provider: 'Dev Mode (Console Log)' };
     }
 
-    try {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: gmailUser,
-          pass: gmailPass,
-        },
-      });
-
-      const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #4A0E17; border-radius: 12px; background-color: #FAF6F0; text-align: center;">
-          <h2 style="color: #4A0E17; font-family: 'Times New Roman', serif; margin-bottom: 4px;">SHUBHAM JEWELLERS</h2>
-          <p style="color: #D4AF37; font-size: 13px; font-weight: bold; margin-top: 0; text-transform: uppercase; letter-spacing: 1px;">Royal Jewels & Fine Crafts</p>
-          <hr style="border: none; border-top: 1px solid #D4AF37; margin: 20px 0;" />
-          <p style="font-size: 14px; color: #333; margin-bottom: 24px;">Your 4-Digit One-Time Password (OTP) for account verification is:</p>
-          <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #4A0E17; background-color: #FFFFFF; border: 2px dashed #D4AF37; padding: 16px; border-radius: 8px; display: inline-block; margin-bottom: 24px;">
-            ${otp}
-          </div>
-          <p style="font-size: 12px; color: #666; margin-bottom: 0;">This code is valid for 10 minutes. Please do not share this OTP with anyone.</p>
-          <hr style="border: none; border-top: 1px dashed #CCC; margin: 20px 0;" />
-          <p style="font-size: 10px; color: #999;">If you did not request this code, please ignore this email.</p>
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #4A0E17; border-radius: 12px; background-color: #FAF6F0; text-align: center;">
+        <h2 style="color: #4A0E17; font-family: 'Times New Roman', serif; margin-bottom: 4px;">SHUBHAM JEWELLERS</h2>
+        <p style="color: #D4AF37; font-size: 13px; font-weight: bold; margin-top: 0; text-transform: uppercase; letter-spacing: 1px;">Royal Jewels & Fine Crafts</p>
+        <hr style="border: none; border-top: 1px solid #D4AF37; margin: 20px 0;" />
+        <p style="font-size: 14px; color: #333; margin-bottom: 24px;">Your 4-Digit One-Time Password (OTP) for account verification is:</p>
+        <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #4A0E17; background-color: #FFFFFF; border: 2px dashed #D4AF37; padding: 16px; border-radius: 8px; display: inline-block; margin-bottom: 24px;">
+          ${otp}
         </div>
-      `;
+        <p style="font-size: 12px; color: #666; margin-bottom: 0;">This code is valid for 10 minutes. Please do not share this OTP with anyone.</p>
+        <hr style="border: none; border-top: 1px dashed #CCC; margin: 20px 0;" />
+        <p style="font-size: 10px; color: #999;">If you did not request this code, please ignore this email.</p>
+      </div>
+    `;
 
-      await transporter.sendMail({
-        from: `"Shubham Jewellers" <${gmailUser}>`,
-        to: email,
-        subject: 'Shubham Jewellers - Your Verification Code',
-        html: htmlContent,
-      });
+    // 1. Try Resend Direct REST API if key is present (ultra-fast latency)
+    if (resendApiKey) {
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: process.env.RESEND_FROM || 'Shubham Jewellers <onboarding@resend.dev>',
+            to: [email],
+            subject: 'Shubham Jewellers - Your Verification Code',
+            html: htmlContent,
+          }),
+        });
 
-      return { success: true, provider: 'Gmail SMTP' };
-    } catch (err: any) {
-      console.error(`[Gmail SMTP Error] Failed to send email to ${email}:`, err);
-      return { success: false, provider: 'Gmail SMTP', error: err?.message || 'Gmail SMTP authentication or network error' };
+        if (response.ok) {
+          console.log(`[Resend API Success] Verification OTP sent to ${email}`);
+          return { success: true, provider: 'Resend API' };
+        } else {
+          const errText = await response.text();
+          console.warn(`[Resend API Error] ${response.status}: ${errText}. Falling back to Gmail SMTP if configured.`);
+        }
+      } catch (resendErr: any) {
+        console.warn(`[Resend API Error] ${resendErr?.message}. Falling back to Gmail SMTP.`);
+      }
     }
+
+    // 2. Try Pooled Gmail SMTP with auto-retry logic
+    if (gmailUser && gmailPass) {
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const transporter = getEmailTransporter(gmailUser, gmailPass);
+          await transporter.sendMail({
+            from: `"Shubham Jewellers" <${gmailUser}>`,
+            to: email,
+            subject: 'Shubham Jewellers - Your Verification Code',
+            html: htmlContent,
+          });
+
+          console.log(`[Gmail SMTP Success] Verification OTP sent to ${email} (Attempt ${attempt})`);
+          return { success: true, provider: 'Gmail SMTP' };
+        } catch (err: any) {
+          console.error(`[Gmail SMTP Error] Attempt ${attempt}/${maxAttempts} failed for ${email}:`, err?.message || err);
+          cachedTransporter = null; // Clear cached transporter so next attempt re-establishes connection
+          if (attempt < maxAttempts) {
+            await new Promise((res) => setTimeout(res, 500)); // Brief delay before retry
+          } else {
+            return {
+              success: false,
+              provider: 'Gmail SMTP',
+              error: err?.message || 'Gmail SMTP connection/authentication error',
+            };
+          }
+        }
+      }
+    }
+
+    return { success: true, provider: 'Dev Mode (Console Log)' };
   }
 
   // ✅ HEALTH CHECK ENDPOINT (for Render monitoring)
@@ -181,15 +278,36 @@ async function startServer() {
   app.post('/api/admin/products', (req, res) => {
     const productData = req.body as Partial<Product>;
     if (productData.id) {
-      // Update existing
+      // Update existing product
       const index = currentProducts.findIndex((p) => p.id === productData.id);
       if (index !== -1) {
         currentProducts[index] = { ...currentProducts[index], ...productData } as Product;
+      } else {
+        // If product ID didn't exist in currentProducts array, add as new product
+        const newProduct: Product = {
+          id: productData.id,
+          title: productData.title || 'New Royal Gold Jewellery',
+          category: productData.category || 'Gold',
+          purity: productData.purity || '22K',
+          weightGrams: Number(productData.weightGrams) || 10,
+          makingChargePercent: Number(productData.makingChargePercent) || 12,
+          baseMakingCharge: Number(productData.baseMakingCharge) || 250,
+          image: productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
+          gallery: productData.gallery && productData.gallery.length > 0 ? productData.gallery : [productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80'],
+          description: productData.description || 'Authentic BIS Hallmarked Gold piece.',
+          gender: productData.gender || 'Women',
+          collection: productData.collection || 'Daily Wear',
+          isNewArrival: productData.isNewArrival ?? true,
+          isFeatured: productData.isFeatured ?? true,
+          inStock: productData.inStock ?? true,
+          hallmarkCertified: true,
+        };
+        currentProducts.unshift(newProduct);
       }
     } else {
-      // Create new
+      // Create new product
       const newProduct: Product = {
-        id: `sj-${Date.now().toString().slice(-4)}`,
+        id: `sj-${Date.now()}`,
         title: productData.title || 'New Royal Gold Jewellery',
         category: productData.category || 'Gold',
         purity: productData.purity || '22K',
@@ -197,7 +315,7 @@ async function startServer() {
         makingChargePercent: Number(productData.makingChargePercent) || 12,
         baseMakingCharge: Number(productData.baseMakingCharge) || 250,
         image: productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
-        gallery: [productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80'],
+        gallery: productData.gallery && productData.gallery.length > 0 ? productData.gallery : [productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80'],
         description: productData.description || 'Authentic BIS Hallmarked Gold piece.',
         gender: productData.gender || 'Women',
         collection: productData.collection || 'Daily Wear',
@@ -215,8 +333,211 @@ async function startServer() {
   app.delete('/api/admin/products/:id', (req, res) => {
     const { id } = req.params;
     currentProducts = currentProducts.filter((p) => p.id !== id);
+    const deletedProductIds = loadData<string[]>('deleted-products.json', []);
+    if (!deletedProductIds.includes(id)) {
+      deletedProductIds.push(id);
+      saveData('deleted-products.json', deletedProductIds);
+    }
     saveData('products.json', currentProducts);
     res.json({ success: true, products: currentProducts });
+  });
+
+  // Helper to categorize a product strictly into a specific jewelry category
+  function getProductSpecificCategory(p: Product): string {
+    const title = (p.title || '').toLowerCase();
+    const cat = (p.category || '').toLowerCase();
+    const desc = (p.description || '').toLowerCase();
+
+    if (title.includes('necklace') || title.includes('kundan') || title.includes('pendant') || title.includes('choker') || title.includes('mangalsutra') || desc.includes('necklace')) {
+      return 'Necklace';
+    }
+    if (title.includes('ring') || title.includes('solitaire') || cat.includes('solitaire') || desc.includes('ring')) {
+      return 'Ring';
+    }
+    if (title.includes('bangle') || title.includes('kada') || desc.includes('bangle')) {
+      return 'Bangles';
+    }
+    if (title.includes('bracelet') || desc.includes('bracelet')) {
+      return 'Bracelet';
+    }
+    if (cat.includes('coins') || title.includes('coin') || title.includes('bar')) {
+      return 'Coins';
+    }
+    if (title.includes('earring') || desc.includes('earring') || cat.includes('earring')) {
+      return 'Earrings';
+    }
+    return 'Jewellery';
+  }
+
+  // Helper to check if a product belongs strictly to a target category
+  function isProductInTargetCategory(p: Product, targetCategory: string): boolean {
+    const pCat = getProductSpecificCategory(p);
+    if (pCat === targetCategory) return true;
+
+    const catLower = targetCategory.toLowerCase();
+    const title = (p.title || '').toLowerCase();
+    const cat = (p.category || '').toLowerCase();
+    const desc = (p.description || '').toLowerCase();
+
+    if (catLower === 'necklace') {
+      return title.includes('necklace') || title.includes('pendant') || title.includes('choker') || title.includes('kundan') || desc.includes('necklace');
+    }
+    if (catLower === 'ring') {
+      return title.includes('ring') || desc.includes('ring') || cat.includes('solitaire');
+    }
+    if (catLower === 'bangles') {
+      return title.includes('bangle') || desc.includes('bangle') || title.includes('kada');
+    }
+    if (catLower === 'bracelet') {
+      return title.includes('bracelet') || desc.includes('bracelet');
+    }
+    if (catLower === 'coins') {
+      return cat.includes('coins') || title.includes('coin');
+    }
+    if (catLower === 'earrings') {
+      return title.includes('earring') || desc.includes('earring');
+    }
+    return false;
+  }
+
+  // 2.1 Visual Image Search API
+  app.post('/api/visual-search', async (req, res) => {
+    try {
+      const { imageUrl } = req.body;
+      if (!imageUrl || typeof imageUrl !== 'string') {
+        res.json({
+          success: true,
+          exactMatch: false,
+          exactProductId: null,
+          category: null,
+          searchTerm: 'No Stock Item',
+          matchedProducts: [],
+          notFound: true,
+        });
+        return;
+      }
+
+      const lowerUrl = imageUrl.toLowerCase();
+
+      // 1. Check exact match against catalog product images
+      const exactProduct = currentProducts.find(
+        (p) => p.image === imageUrl || (p.gallery && p.gallery.includes(imageUrl))
+      );
+
+      let detectedCategory: string | null = null;
+
+      if (exactProduct) {
+        detectedCategory = getProductSpecificCategory(exactProduct);
+      } else {
+        // 2. Multimodal Gemini AI Visual Classifier if base64 data or URL + API key is present
+        if (process.env.GEMINI_API_KEY) {
+          try {
+            const { GoogleGenAI } = await import('@google/genai');
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+            
+            let contents: any = null;
+            if (imageUrl.startsWith('data:image/')) {
+              // Extract base64 mime type and data payload
+              const matches = imageUrl.match(/^data:(image\/[^;]+);base64,(.+)$/s);
+              if (matches && matches[1] && matches[2]) {
+                contents = [
+                  {
+                    inlineData: {
+                      mimeType: matches[1],
+                      data: matches[2].replace(/\s/g, ''),
+                    },
+                  },
+                  'Look at this jewelry photo. Which specific category does it depict? Reply ONLY with ONE word from: [Necklace, Ring, Bangles, Bracelet, Earrings, Coins]. Do NOT output any additional words or punctuation.',
+                ];
+              }
+            } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+              contents = `Examine this jewelry image URL: "${imageUrl}". Which specific category does it depict? Reply ONLY with ONE word from: [Necklace, Ring, Bangles, Bracelet, Earrings, Coins]. Do NOT output any additional words or punctuation.`;
+            }
+
+            if (contents) {
+              const aiResponse = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents,
+              });
+              const text = aiResponse.text?.trim() || '';
+              const validCategories = ['Necklace', 'Ring', 'Bangles', 'Bracelet', 'Earrings', 'Coins'];
+              const foundCat = validCategories.find((c) => text.toLowerCase().includes(c.toLowerCase()));
+              if (foundCat) {
+                detectedCategory = foundCat;
+              }
+            }
+          } catch (geminiErr) {
+            console.warn('[Gemini Visual Search Error]:', geminiErr);
+          }
+        }
+
+        // 3. Fallback keyword matching on image URL / filename string
+        if (!detectedCategory) {
+          if (lowerUrl.includes('necklace') || lowerUrl.includes('1599643478518') || lowerUrl.includes('kundan') || lowerUrl.includes('pendant') || lowerUrl.includes('choker') || lowerUrl.includes('har')) {
+            detectedCategory = 'Necklace';
+          } else if (lowerUrl.includes('ring') || lowerUrl.includes('1605100804763') || lowerUrl.includes('solitaire') || lowerUrl.includes('band')) {
+            detectedCategory = 'Ring';
+          } else if (lowerUrl.includes('bangle') || lowerUrl.includes('1611591475168') || lowerUrl.includes('kada')) {
+            detectedCategory = 'Bangles';
+          } else if (lowerUrl.includes('bracelet') || lowerUrl.includes('1535632066927')) {
+            detectedCategory = 'Bracelet';
+          } else if (lowerUrl.includes('coin') || lowerUrl.includes('1610375461246') || lowerUrl.includes('bar')) {
+            detectedCategory = 'Coins';
+          } else if (lowerUrl.includes('earring') || lowerUrl.includes('jhumka') || lowerUrl.includes('stud')) {
+            detectedCategory = 'Earrings';
+          }
+        }
+      }
+
+      // 4. Strict same-category in-stock inventory lookup
+      if (detectedCategory) {
+        // Get all in-stock products strictly matching detectedCategory
+        let matchingInStock = currentProducts.filter((p) => p.inStock && isProductInTargetCategory(p, detectedCategory));
+
+        // If exactProduct exists and is in matchingInStock, rank it FIRST at index 0
+        if (exactProduct && exactProduct.inStock) {
+          matchingInStock = matchingInStock.filter((p) => p.id !== exactProduct.id);
+          matchingInStock.unshift(exactProduct);
+        }
+
+        if (matchingInStock.length > 0) {
+          res.json({
+            success: true,
+            exactMatch: !!exactProduct,
+            exactProductId: exactProduct?.id || matchingInStock[0]?.id || null,
+            category: detectedCategory,
+            searchTerm: detectedCategory,
+            matchedProducts: matchingInStock,
+            notFound: false,
+          });
+          return;
+        }
+      }
+
+      // 5. If category missing or no in-stock products match: return empty matchedProducts with 'No Stock Item'
+      res.json({
+        success: true,
+        exactMatch: false,
+        exactProductId: null,
+        category: detectedCategory || null,
+        searchTerm: 'No Stock Item',
+        matchedProducts: [],
+        notFound: true,
+      });
+    } catch (err: any) {
+      console.error('[Visual Search API Error]:', err);
+      // Graceful error response without server crash or random fallback
+      res.json({
+        success: true,
+        exactMatch: false,
+        exactProductId: null,
+        category: null,
+        searchTerm: 'No Stock Item',
+        matchedProducts: [],
+        notFound: true,
+        message: err?.message || 'Visual search error',
+      });
+    }
   });
 
   // Admin PIN Rate Limiting & Lockout Memory Store
@@ -273,26 +594,40 @@ async function startServer() {
     }
   });
 
+  // Helper to normalize banner object fields
+  function normalizeBanner(b: Banner): Banner {
+    const img = b.image || b.imageUrl || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=1200';
+    const tag = b.discountBadge || b.discountTag || 'SPECIAL OFFER';
+    return {
+      ...b,
+      image: img,
+      imageUrl: img,
+      discountBadge: tag,
+      discountTag: tag,
+    };
+  }
+
   // 3. Banners
   app.get('/api/banners', (req, res) => {
-    res.json({ success: true, banners: currentBanners });
+    res.json({ success: true, banners: currentBanners.map(normalizeBanner) });
   });
 
   app.post('/api/admin/banners', (req, res) => {
-    const newBanner = req.body as Banner;
-    if (newBanner.id) {
-      const idx = currentBanners.findIndex((b) => b.id === newBanner.id);
-      if (idx !== -1) {
-        currentBanners[idx] = newBanner;
-      } else {
-        currentBanners.push(newBanner);
-      }
+    const rawBanner = req.body as Banner;
+    const newBanner = normalizeBanner({
+      ...rawBanner,
+      id: rawBanner.id || `b-${Date.now()}`,
+    });
+
+    const idx = currentBanners.findIndex((b) => b.id === newBanner.id);
+    if (idx !== -1) {
+      currentBanners[idx] = newBanner;
     } else {
-      newBanner.id = `b-${Date.now()}`;
       currentBanners.push(newBanner);
     }
+
     saveData('banners.json', currentBanners);
-    res.json({ success: true, banners: currentBanners });
+    res.json({ success: true, banners: currentBanners, message: 'Banner saved successfully!' });
   });
 
   app.delete('/api/admin/banners/:id', (req, res) => {
@@ -300,6 +635,73 @@ async function startServer() {
     currentBanners = currentBanners.filter((b) => b.id !== id);
     saveData('banners.json', currentBanners);
     res.json({ success: true, banners: currentBanners, message: 'Banner removed successfully' });
+  });
+
+  // 3.5 Categories Partitions
+  app.get('/api/categories', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({ success: true, categories: currentCategories });
+  });
+
+  app.post('/api/admin/categories', (req, res) => {
+    const { categories } = req.body;
+    if (Array.isArray(categories)) {
+      currentCategories = categories;
+      saveData('categories.json', currentCategories);
+    }
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({ success: true, categories: currentCategories, message: 'Categories updated successfully!' });
+  });
+
+  // 3.8 Bottom Banner
+  app.get('/api/bottom-banner', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({ success: true, bottomBanner: currentBottomBanner });
+  });
+
+  app.post('/api/admin/bottom-banner', (req, res) => {
+    const rawBanner = req.body as BottomBanner;
+    currentBottomBanner = {
+      ...currentBottomBanner,
+      ...rawBanner,
+    };
+    saveData('bottom-banner.json', currentBottomBanner);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({ success: true, bottomBanner: currentBottomBanner, message: 'Bottom banner updated successfully!' });
+  });
+
+  // 3.9 Hamburger Drawer Dashboard Configuration
+  app.get('/api/drawer-config', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({ success: true, drawerConfig: currentDrawerConfig });
+  });
+
+  app.post('/api/admin/drawer-config', (req, res) => {
+    const rawConfig = req.body as Partial<DrawerConfig>;
+    currentDrawerConfig = {
+      ...currentDrawerConfig,
+      ...rawConfig,
+    };
+    saveData('drawer-config.json', currentDrawerConfig);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({ success: true, drawerConfig: currentDrawerConfig, message: 'Hamburger menu updated successfully!' });
+  });
+
+  // 3.10 Footer Configuration
+  app.get('/api/footer-config', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({ success: true, footerConfig: currentFooterConfig });
+  });
+
+  app.post('/api/admin/footer-config', (req, res) => {
+    const rawConfig = req.body as Partial<FooterConfig>;
+    currentFooterConfig = {
+      ...currentFooterConfig,
+      ...rawConfig,
+    };
+    saveData('footer-config.json', currentFooterConfig);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({ success: true, footerConfig: currentFooterConfig, message: 'Footer configuration updated successfully!' });
   });
 
   // 4. OTP Auth
@@ -317,7 +719,7 @@ async function startServer() {
       const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
       otpStore[cleanEmail] = generatedOtp;
 
-      // Dispatch Email via Gmail SMTP
+      // Await email dispatch so SMTP connection completes before container HTTP cycle finishes
       const emailResult = await sendOtpViaEmail(cleanEmail, generatedOtp);
 
       if (!emailResult.success) {
@@ -329,7 +731,7 @@ async function startServer() {
         return;
       }
 
-      console.log(`[Email OTP Success] Sent verification OTP code to ${cleanEmail} via ${emailResult.provider}`);
+      console.log(`[Email OTP Success] Verification code dispatched to ${cleanEmail} via ${emailResult.provider}`);
 
       res.json({
         success: true,
@@ -464,6 +866,7 @@ async function startServer() {
 
   // 7. Company Details / About Us
   app.get('/api/company-info', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({ success: true, companyInfo: currentCompanyInfo });
   });
 
@@ -471,6 +874,7 @@ async function startServer() {
     const infoUpdate = req.body as Partial<CompanyInfo>;
     currentCompanyInfo = { ...currentCompanyInfo, ...infoUpdate };
     saveData('company-info.json', currentCompanyInfo);
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({ success: true, companyInfo: currentCompanyInfo, message: 'Company details updated live!' });
   });
 

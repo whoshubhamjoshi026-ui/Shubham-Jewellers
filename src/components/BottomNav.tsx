@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Home, Gem, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Home, Gem, ShieldCheck, Sparkles, Shield, X } from 'lucide-react';
 
 interface BottomNavProps {
-  activeTab: 'home' | 'jew_plans' | 'digi_gold' | 'gifting';
-  onSelectTab: (tab: 'home' | 'jew_plans' | 'digi_gold' | 'gifting') => void;
+  activeTab: 'home' | 'jew_plans' | 'digi_gold' | 'gifting' | 'admin';
+  onSelectTab: (tab: 'home' | 'jew_plans' | 'digi_gold' | 'gifting' | 'admin') => void;
   onOpenSchemeModal: () => void;
   onOpenDigiGoldModal: () => void;
   onOpenGiftingModal: () => void;
+  isAdmin?: boolean;
+  onOpenAdmin?: () => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -15,6 +17,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onOpenSchemeModal,
   onOpenDigiGoldModal,
   onOpenGiftingModal,
+  isAdmin,
+  onOpenAdmin,
 }) => {
   const [showShortcutTooltip, setShowShortcutTooltip] = useState(true);
 
@@ -103,6 +107,26 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <Sparkles className="w-5 h-5 mb-1" />
             <span className="text-[10px] tracking-tight leading-none">Gifting</span>
           </button>
+
+          {/* 5. Admin Button (Only visible for logged-in Admin) */}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                onSelectTab('admin');
+                onOpenAdmin?.();
+              }}
+              className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-300 ${
+                activeTab === 'admin'
+                  ? 'bg-[#7A1C28] text-[#D4AF37] shadow-md font-extrabold scale-105 border border-[#D4AF37]/50'
+                  : 'text-[#D4AF37] font-bold hover:bg-[#7A1C28]/20'
+              }`}
+            >
+              <Shield className="w-5 h-5 mb-1 text-[#D4AF37]" />
+              <span className="text-[10px] tracking-tight leading-none truncate max-w-[60px] font-extrabold text-[#D4AF37]">
+                Admin
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </div>

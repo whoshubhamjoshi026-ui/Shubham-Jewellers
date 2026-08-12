@@ -17,7 +17,12 @@ export const AboutCompanyModal: React.FC<AboutCompanyModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const whatsappUrl = `https://wa.me/${info.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Namaste Shubham Jewellers! I would like to inquire about store visit and collections.')}`;
+  const cleanDigits = (info.whatsappNumber || '919820012345').replace(/[^0-9]/g, '');
+  const formattedPhone = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+  const displayWaNumber = formattedPhone.startsWith('91') && formattedPhone.length === 12
+    ? `+91 ${formattedPhone.slice(2)}`
+    : `+${formattedPhone}`;
+  const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent('Namaste Shubham Jewellers! I would like to inquire about store visit and collections.')}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in overflow-y-auto">
@@ -133,7 +138,7 @@ export const AboutCompanyModal: React.FC<AboutCompanyModalProps> = ({
               className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 active:scale-95"
             >
               <MessageCircle className="w-4.5 h-4.5 fill-white text-emerald-600" />
-              <span>Connect directly on WhatsApp (+91 {info.whatsappNumber})</span>
+              <span>Connect directly on WhatsApp ({displayWaNumber})</span>
               <ExternalLink className="w-3.5 h-3.5 ml-1" />
             </a>
           </div>

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product, GoldRates } from '../types';
 import { calculateProductPrice, formatINR } from '../utils/priceCalculator';
+import { ImageInputSelector } from './ImageInputSelector';
 import {
   X,
   ShieldCheck,
@@ -14,6 +15,7 @@ import {
   Award,
   Truck,
   RotateCcw,
+  Plus,
 } from 'lucide-react';
 
 interface ProductDetailModalProps {
@@ -27,6 +29,8 @@ interface ProductDetailModalProps {
   darkMode: boolean;
   isAdmin?: boolean;
   onUpdateProductDescription?: (id: string, newDesc: string) => void;
+  onUpdateProductImage?: (id: string, newPrimaryImg: string, newGallery: string[]) => void;
+  whatsappNumber?: string;
 }
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -40,21 +44,56 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   darkMode,
   isAdmin = false,
   onUpdateProductDescription,
+  onUpdateProductImage,
+  whatsappNumber,
 }) => {
-  if (!product) return null;
-
-  const priceInfo = calculateProductPrice(product, rates);
-  const [selectedImg, setSelectedImg] = useState(product.image);
+  const cleanNum = (whatsappNumber || '919820012345').replace(/[^0-9]/g, '');
+  const formattedWa = cleanNum.length === 10 ? `91${cleanNum}` : cleanNum;
+  const displayPhone = formattedWa.startsWith('91') && formattedWa.length === 12
+    ? `+91 ${formattedWa.slice(2)}`
+    : `+${formattedWa}`;
+  const [selectedImg, setSelectedImg] = useState<string>(product?.image || '');
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(true);
   const [zoom, setZoom] = useState(false);
   const [isEditingDesc, setIsEditingDesc] = useState(false);
-  const [descValue, setDescValue] = useState(product.description || '');
+  const [descValue, setDescValue] = useState<string>(product?.description || '');
+  const [isAddingPhoto, setIsAddingPhoto] = useState(false);
+  const [newPhotoVal, setNewPhotoVal] = useState('');
+
+  useEffect(() => {
+    if (product) {
+      setSelectedImg(product.image);
+      setDescValue(product.description || '');
+      setZoom(false);
+      setIsEditingDesc(false);
+      setIsAddingPhoto(false);
+      setNewPhotoVal('');
+    }
+  }, [product]);
+
+  if (!product) return null;
+
+  const priceInfo = calculateProductPrice(product, rates);
 
   const handleSaveDesc = () => {
     if (onUpdateProductDescription && product) {
       onUpdateProductDescription(product.id, descValue);
     }
     setIsEditingDesc(false);
+  };
+
+  const handleAddPhotoToProduct = (photoUrl: string) => {
+    if (!photoUrl || !product) return;
+    const currentGallery = product.gallery || [product.image];
+    const updatedGallery = [...currentGallery, photoUrl];
+    if (onUpdateProductImage) {
+      onUpdateProductImage(product.id, product.image, updatedGallery);
+    } else {
+      product.gallery = updatedGallery;
+    }
+    setSelectedImg(photoUrl);
+    setIsAddingPhoto(false);
+    setNewPhotoVal('');
   };
 
   return (
@@ -97,14 +136,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Gallery Thumbnails */}
-            {product.gallery && product.gallery.length > 1 && (
-              <div className="flex space-x-3 overflow-x-auto pb-1">
-                {product.gallery.map((imgUrl, i) => (
+            {/* Gallery Thumbnails & Admin Photo Adder */}
+            <div className="space-y-2">
+              <div className="flex space-x-3 overflow-x-auto pb-1 items-center">
+                {product.gallery && product.gallery.map((imgUrl, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedImg(imgUrl)}
-                    className={`w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
+                    className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden border-2 transition-all ${
                       selectedImg === imgUrl
                         ? 'border-[#D4AF37] scale-105 shadow-md'
                         : 'border-transparent opacity-70 hover:opacity-100'
@@ -118,8 +157,47 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     />
                   </button>
                 ))}
+
+                {isAdmin && !isAddingPhoto && (
+                  <button
+                    onClick={() => setIsAddingPhoto(true)}
+                    className="w-16 h-16 shrink-0 rounded-xl border-2 border-dashed border-[#D4AF37] bg-[#4A0E17]/10 dark:bg-zinc-800 flex flex-col items-center justify-center text-[#4A0E17] dark:text-[#D4AF37] text-[10px] font-bold hover:bg-[#4A0E17]/20 transition-all"
+                    title="Admin: Add Photo"
+                  >
+                    <Plus className="w-4 h-4 mb-0.5" />
+                    <span>+ Photo</span>
+                  </button>
+                )}
               </div>
-            )}
+
+              {isAdmin && isAddingPhoto && (
+                <div className={`p-3 rounded-xl border space-y-2 ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-amber-50 border-amber-300'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#4A0E17] dark:text-[#D4AF37]">
+                      Admin: Add Photo to Product Gallery
+                    </span>
+                    <button
+                      onClick={() => setIsAddingPhoto(false)}
+                      className="text-xs font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <ImageInputSelector
+                    label="Choose New Photo"
+                    value={newPhotoVal}
+                    onChange={(val) => {
+                      setNewPhotoVal(val);
+                      if (val) handleAddPhotoToProduct(val);
+                    }}
+                    placeholder="Paste photo URL..."
+                    darkMode={darkMode}
+                    helpText="Provide a direct Image URL or pick a photo from your gallery."
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Trust Assurances */}
             <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-semibold pt-2 border-t border-amber-200/50 dark:border-zinc-800">
@@ -312,7 +390,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center justify-center space-x-2"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>Inquire on Official WhatsApp (+91 98765 43210)</span>
+                <span>Inquire on Official WhatsApp ({displayPhone})</span>
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Gift, Sparkles, Check, ArrowRight, ShieldCheck } from 'lucide-react';
-import { formatINR } from '../utils/priceCalculator';
+import { Product, GoldRates } from '../types';
+import { formatINR, calculateProductPrice } from '../utils/priceCalculator';
 
 interface GiftingModalProps {
   isOpen: boolean;
@@ -8,6 +9,8 @@ interface GiftingModalProps {
   onSelectCoinsCategory: () => void;
   onOpenWhatsApp: () => void;
   darkMode: boolean;
+  products?: Product[];
+  rates?: GoldRates;
 }
 
 export const GiftingModal: React.FC<GiftingModalProps> = ({
@@ -16,29 +19,14 @@ export const GiftingModal: React.FC<GiftingModalProps> = ({
   onSelectCoinsCategory,
   onOpenWhatsApp,
   darkMode,
+  products = [],
+  rates,
 }) => {
   if (!isOpen) return null;
 
-  const giftItems = [
-    {
-      title: '24K Laxmi Ganesh Pure Gold Coin (10g)',
-      price: 76500,
-      purity: '999.9 Fine Pure Gold',
-      img: 'https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&q=80&w=400',
-    },
-    {
-      title: '999 Fine Pure Silver Divine Coin (50g)',
-      price: 4950,
-      purity: '999 Pure Sterling Silver',
-      img: 'https://images.unsplash.com/photo-1611591475281-b1c9c811f016?auto=format&fit=crop&q=80&w=400',
-    },
-    {
-      title: 'Royal Bridal Solitaire Diamond Gift Set',
-      price: 245000,
-      purity: 'VVS-EF Certified Diamond',
-      img: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&q=80&w=400',
-    },
-  ];
+  const giftProducts = products.filter(
+    (p) => p.category === 'Coins' || p.category === 'Solitaires' || p.isFeatured
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
@@ -86,30 +74,44 @@ export const GiftingModal: React.FC<GiftingModalProps> = ({
               Featured Festive Gift Collections
             </h3>
 
-            {giftItems.map((item, idx) => (
-              <div
-                key={idx}
-                className="p-3 rounded-xl border bg-white dark:bg-zinc-800 border-amber-200 dark:border-zinc-700 flex items-center space-x-3 shadow-sm"
-              >
-                <img src={item.img} alt={item.title} className="w-16 h-16 rounded-lg object-cover shrink-0" />
-                <div className="flex-1 overflow-hidden">
-                  <h4 className="font-bold text-xs truncate text-[#4A0E17] dark:text-[#D4AF37] font-serif">
-                    {item.title}
-                  </h4>
-                  <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">{item.purity}</p>
-                  <p className="text-xs font-black font-mono mt-1">{formatINR(item.price)}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    onClose();
-                    onOpenWhatsApp();
-                  }}
-                  className="px-3 py-1.5 bg-[#4A0E17] text-[#D4AF37] rounded-lg text-[11px] font-bold shrink-0 hover:bg-[#6B1423]"
-                >
-                  Gift Now
-                </button>
+            {giftProducts.length > 0 ? (
+              giftProducts.map((item) => {
+                const price = rates ? calculateProductPrice(item, rates).totalPrice : item.baseMakingCharge;
+                return (
+                  <div
+                    key={item.id}
+                    className="p-3 rounded-xl border bg-white dark:bg-zinc-800 border-amber-200 dark:border-zinc-700 flex items-center space-x-3 shadow-sm"
+                  >
+                    <img src={item.image} alt={item.title} className="w-16 h-16 rounded-lg object-cover shrink-0" />
+                    <div className="flex-1 overflow-hidden">
+                      <h4 className="font-bold text-xs truncate text-[#4A0E17] dark:text-[#D4AF37] font-serif">
+                        {item.title}
+                      </h4>
+                      <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">{item.purity} • {item.weightGrams}g</p>
+                      <p className="text-xs font-black font-mono mt-1">{formatINR(price)}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenWhatsApp();
+                      }}
+                      className="px-3 py-1.5 bg-[#4A0E17] text-[#D4AF37] rounded-lg text-[11px] font-bold shrink-0 hover:bg-[#6B1423]"
+                    >
+                      Gift Now
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-4 rounded-xl border border-dashed border-amber-300 dark:border-zinc-700 text-center bg-amber-50/50 dark:bg-zinc-800/50">
+                <p className="text-xs font-bold text-amber-900 dark:text-zinc-300">
+                  No specific gift or coin items found in current inventory.
+                </p>
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1">
+                  Explore our full catalogue or contact store admin to add featured gift items.
+                </p>
               </div>
-            ))}
+            )}
           </div>
 
           <button

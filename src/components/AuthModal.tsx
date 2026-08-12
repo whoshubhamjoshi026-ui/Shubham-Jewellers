@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { Mail, Lock, CheckCircle2, MapPin, User, ArrowRight, ShieldCheck } from 'lucide-react';
 import { safeFetchJson } from '../utils/safeFetch';
+import { ImageInputSelector } from './ImageInputSelector';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Form State
   const [name, setName] = useState(user.name || '');
+  const [avatar, setAvatar] = useState(user.avatar || '');
   const [street, setStreet] = useState(user.address?.street || '');
   const [city, setCity] = useState(user.address?.city || '');
   const [state, setState] = useState(user.address?.state || '');
@@ -111,6 +113,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const updatedUser: UserProfile = {
       email,
       name,
+      avatar,
       address: { street, city, state, pincode },
       isLoggedIn: true,
     };
@@ -292,6 +295,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   />
                   <User className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#4A0E17] dark:text-[#D4AF37]" />
                 </div>
+              </div>
+
+              {/* Profile Photo Selection with URL or Device Gallery */}
+              <div className="pt-1">
+                <ImageInputSelector
+                  label="Profile Picture / Avatar"
+                  value={avatar}
+                  onChange={setAvatar}
+                  placeholder="Paste profile photo URL..."
+                  helpText="Choose a profile picture from your device gallery or paste an image link."
+                />
               </div>
 
               <div>

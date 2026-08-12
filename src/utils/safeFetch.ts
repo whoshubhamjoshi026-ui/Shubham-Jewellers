@@ -18,7 +18,20 @@ export function getApiUrl(path: string): string {
 export async function safeFetchJson<T = any>(path: string, options?: RequestInit): Promise<T | null> {
   try {
     const fullUrl = getApiUrl(path);
-    const res = await fetch(fullUrl, options);
+    const method = options?.method?.toUpperCase() || 'GET';
+    // Append timestamp for GET requests to bypass browser cache
+    const finalUrl = method === 'GET' 
+      ? (fullUrl.includes('?') ? `${fullUrl}&_t=${Date.now()}` : `${fullUrl}?_t=${Date.now()}`)
+      : fullUrl;
+
+    const res = await fetch(finalUrl, {
+      cache: 'no-store',
+      ...options,
+      headers: {
+        'Cache-Control': 'no-cache',
+        ...options?.headers,
+      },
+    });
     const contentType = res.headers.get('content-type') || '';
     
     // If response is not OK or is HTML (e.g. <!DOCTYPE html> from Vite fallback), return null

@@ -1,16 +1,22 @@
 // Trigger deployment push
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { AnimatePresence } from 'motion/react';
+import { SplashScreen } from './components/SplashScreen';
 import {
   UserProfile,
   GoldRates,
   Product,
   Banner,
+  BottomBanner,
+  CategoryItem,
   AppVersionInfo,
   CartItem,
   Category,
   Gender,
   Purity,
   CompanyInfo,
+  DrawerConfig,
+  FooterConfig,
 } from './types';
 import { Header } from './components/Header';
 import { AuthModal } from './components/AuthModal';
@@ -31,12 +37,24 @@ import { AboutCompanyModal } from './components/AboutCompanyModal';
 import { CartDrawer } from './components/CartDrawer';
 import { WhatsAppInquiryModal } from './components/WhatsAppInquiry';
 import { Footer } from './components/Footer';
-import { initialGoldRates, initialBanners, initialProducts, initialVersionInfo, initialCompanyInfo } from './data/initialData';
+import { ToastContainer, ToastMessage } from './components/Toast';
+import { initialGoldRates, initialBanners, initialBottomBanner, initialCategoryItems, initialProducts, initialVersionInfo, initialCompanyInfo, initialDrawerConfig, initialFooterConfig } from './data/initialData';
 import { calculateProductPrice } from './utils/priceCalculator';
 import { safeFetchJson } from './utils/safeFetch';
 import { Heart, Sparkles, SlidersHorizontal, ArrowUpRight } from 'lucide-react';
 
 export default function App() {
+  // Toast Notification State
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (title: string, description?: string, type: 'success' | 'error' | 'info' = 'success') => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    setToasts((prev) => [...prev, { id, title, description, type }]);
+  };
+
+  // Animated Splash Screen State
+  const [showSplash, setShowSplash] = useState<boolean>(true);
+
   // Dynamic System Theme Listener (Default to Light Mode)
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('sj_dark_mode');
@@ -72,18 +90,30 @@ export default function App() {
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(!user.isLoggedIn);
 
   // Role Control (Invisible Admin Access)
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isAdmin, setIsAdminState] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('sj_is_admin') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const setIsAdmin = (val: boolean) => {
+    setIsAdminState(val);
+    try {
+      if (val) {
+        sessionStorage.setItem('sj_is_admin', 'true');
+      } else {
+        sessionStorage.removeItem('sj_is_admin');
+      }
+    } catch (e) {}
+  };
 
   // Dynamic Custom Category Partitions (Admin Managed)
-  const [customCategories, setCustomCategories] = useState<string[]>([
-    'Gold',
-    'Diamond',
-    'Silver',
-    'Coins',
-    'Solitaires',
-    'Kundan & Antique',
-    'Mangalsutra',
-  ]);
+  const [customCategories, setCustomCategories] = useState<(CategoryItem | string)[]>(initialCategoryItems);
+  const [bottomBanner, setBottomBanner] = useState<BottomBanner>(initialBottomBanner);
+  const [drawerConfig, setDrawerConfig] = useState<DrawerConfig>(initialDrawerConfig);
+  const [footerConfig, setFooterConfig] = useState<FooterConfig>(initialFooterConfig);
 
   // Real-time Data
   const [rates, setRates] = useState<GoldRates>(initialGoldRates);
@@ -98,6 +128,7 @@ export default function App() {
   const [selectedPurity, setSelectedPurity] = useState<Purity | 'All'>('All');
   const [priceRange, setPriceRange] = useState<number>(500000);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [exactMatchProductId, setExactMatchProductId] = useState<string | null>(null);
 
   // Interactive Modals
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
@@ -110,7 +141,7 @@ export default function App() {
   const [giftingModalOpen, setGiftingModalOpen] = useState<boolean>(false);
   const [aboutModalOpen, setAboutModalOpen] = useState<boolean>(false);
   const [sideDrawerOpen, setSideDrawerOpen] = useState<boolean>(false);
-  const [bottomTab, setBottomTab] = useState<'home' | 'jew_plans' | 'digi_gold' | 'gifting'>('home');
+  const [bottomTab, setBottomTab] = useState<'home' | 'jew_plans' | 'digi_gold' | 'gifting' | 'admin'>('home');
   const [cartOpen, setCartOpen] = useState<boolean>(false);
   const [wishlistOpen, setWishlistOpen] = useState<boolean>(false);
   const [activeSection, setActiveSection] = useState<'catalog' | 'scheme'>('catalog');
@@ -129,7 +160,7 @@ export default function App() {
             if (ud.profile) setUser((prev) => ({ ...prev, ...ud.profile }));
             if (ud.cart && ud.cart.length > 0) setCart(ud.cart);
             if (ud.wishlistIds && ud.wishlistIds.length > 0) {
-              const restoredWish = initialProducts.filter((p) => ud.wishlistIds.includes(p.id));
+              const restoredWish = products.filter((p) => ud.wishlistIds.includes(p.id));
               if (restoredWish.length > 0) setWishlist(restoredWish);
             }
           }
@@ -159,12 +190,16 @@ export default function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [ratesRes, productsRes, bannersRes, versionRes, companyRes] = await Promise.all([
+        const [ratesRes, productsRes, bannersRes, versionRes, companyRes, catRes, bbRes, drawerRes, footerRes] = await Promise.all([
           safeFetchJson('/api/rates'),
           safeFetchJson('/api/products'),
           safeFetchJson('/api/banners'),
           safeFetchJson('/api/version'),
           safeFetchJson('/api/company-info'),
+          safeFetchJson('/api/categories'),
+          safeFetchJson('/api/bottom-banner'),
+          safeFetchJson('/api/drawer-config'),
+          safeFetchJson('/api/footer-config'),
         ]);
 
         if (ratesRes?.success && ratesRes.rates) setRates(ratesRes.rates);
@@ -172,6 +207,18 @@ export default function App() {
         if (bannersRes?.success && bannersRes.banners) setBanners(bannersRes.banners);
         if (versionRes?.success && versionRes.versionInfo) setVersionInfo(versionRes.versionInfo);
         if (companyRes?.success && companyRes.companyInfo) setCompanyInfo(companyRes.companyInfo);
+        if (catRes?.success && Array.isArray(catRes.categories) && catRes.categories.length > 0) {
+          setCustomCategories(catRes.categories);
+        }
+        if (bbRes?.success && bbRes.bottomBanner) {
+          setBottomBanner(bbRes.bottomBanner);
+        }
+        if (drawerRes?.success && drawerRes.drawerConfig) {
+          setDrawerConfig(drawerRes.drawerConfig);
+        }
+        if (footerRes?.success && footerRes.footerConfig) {
+          setFooterConfig(footerRes.footerConfig);
+        }
       } catch (err) {
         console.warn('Backend offline, using local state');
       }
@@ -183,26 +230,69 @@ export default function App() {
   }, []);
 
   // Filter products
-  const filteredProducts = products.filter((p) => {
-    const price = calculateProductPrice(p, rates).totalPrice;
+  const filteredProducts = useMemo(() => {
+    let result = products.filter((p) => {
+      const price = calculateProductPrice(p, rates).totalPrice;
 
-    if (selectedCategory !== 'All' && p.category !== selectedCategory) return false;
-    if (selectedGender !== 'All' && p.gender !== selectedGender) return false;
-    if (selectedPurity !== 'All' && p.purity !== selectedPurity) return false;
-    if (price > priceRange) return false;
+      if (selectedCategory !== 'All' && p.category !== selectedCategory) return false;
+      if (selectedGender !== 'All' && p.gender !== selectedGender) return false;
+      if (selectedPurity !== 'All' && p.purity !== selectedPurity) return false;
+      if (price > priceRange) return false;
 
-    if (searchTerm.trim() !== '') {
-      const q = searchTerm.toLowerCase();
-      return (
-        p.title.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        p.purity.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q)
-      );
+      if (searchTerm.trim() !== '') {
+        const q = searchTerm.toLowerCase().trim();
+
+        if (q === 'necklace' || q === 'necklaces') {
+          return (
+            p.title.toLowerCase().includes('necklace') ||
+            p.title.toLowerCase().includes('pendant') ||
+            p.title.toLowerCase().includes('choker') ||
+            p.title.toLowerCase().includes('kundan') ||
+            p.description.toLowerCase().includes('necklace')
+          );
+        }
+
+        if (q === 'ring' || q === 'rings' || q === 'solitaire ring') {
+          return p.title.toLowerCase().includes('ring') || p.description.toLowerCase().includes('ring');
+        }
+
+        if (q === 'bangle' || q === 'bangles' || q === 'kadas') {
+          return p.title.toLowerCase().includes('bangle') || p.description.toLowerCase().includes('bangle');
+        }
+
+        if (q === 'bracelet' || q === 'bracelets') {
+          return p.title.toLowerCase().includes('bracelet') || p.description.toLowerCase().includes('bracelet');
+        }
+
+        if (q === 'coin' || q === 'coins' || q === 'gold coin') {
+          return p.category.toLowerCase().includes('coins') || p.title.toLowerCase().includes('coin');
+        }
+
+        if (q === 'earring' || q === 'earrings' || q === 'jhumka') {
+          return p.title.toLowerCase().includes('earring') || p.description.toLowerCase().includes('earring');
+        }
+
+        return (
+          p.title.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q) ||
+          p.purity.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q)
+        );
+      }
+
+      return true;
+    });
+
+    if (exactMatchProductId) {
+      result = [...result].sort((a, b) => {
+        if (a.id === exactMatchProductId) return -1;
+        if (b.id === exactMatchProductId) return 1;
+        return 0;
+      });
     }
 
-    return true;
-  });
+    return result;
+  }, [products, rates, selectedCategory, selectedGender, selectedPurity, priceRange, searchTerm, exactMatchProductId]);
 
   // Cart Handlers
   const handleAddToCart = (product: Product) => {
@@ -256,27 +346,37 @@ export default function App() {
         body: JSON.stringify(newRates),
       });
       if (data?.rates) setRates(data.rates);
-      else setRates((prev) => ({ ...prev, ...newRates, lastUpdated: new Date().toLocaleTimeString() }));
+      else setRates((prev) => ({ ...prev, ...newRates, lastUpdated: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) }));
+      addToast('Live Rates Updated', 'Gold & Silver rates updated and saved to database.');
     } catch (e) {
-      setRates((prev) => ({ ...prev, ...newRates, lastUpdated: new Date().toLocaleTimeString() }));
+      setRates((prev) => ({ ...prev, ...newRates, lastUpdated: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) }));
+      addToast('Rates Updated', 'Updated rates in active session.', 'info');
     }
   };
 
   const handleAddProduct = async (productData: Partial<Product>) => {
     try {
-      const data = await safeFetchJson<{ products?: Product[] }>('/api/admin/products', {
+      const data = await safeFetchJson<{ success?: boolean; products?: Product[] }>('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productData),
       });
       if (data?.products) {
         setProducts(data.products);
+        if (selectedProductDetail && productData.id === selectedProductDetail.id) {
+          const updated = data.products.find((p) => p.id === productData.id);
+          if (updated) setSelectedProductDetail(updated);
+        }
+        addToast(
+          productData.id ? 'Product Updated' : 'Product Added',
+          productData.id ? 'Product details updated in database.' : 'New product saved to database catalog.'
+        );
         return;
       }
     } catch (e) {}
 
     const newP: Product = {
-      id: `sj-${Date.now()}`,
+      id: productData.id || `sj-${Date.now()}`,
       title: productData.title || 'New Gold Jewellery',
       category: productData.category || 'Gold',
       purity: productData.purity || '22K',
@@ -284,23 +384,130 @@ export default function App() {
       makingChargePercent: productData.makingChargePercent || 12,
       baseMakingCharge: 250,
       image: productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
-      gallery: [productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80'],
+      gallery: productData.gallery || [productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80'],
       description: productData.description || 'Authentic BIS Hallmarked Gold piece.',
       gender: productData.gender || 'Women',
       collection: 'Daily Wear',
       isNewArrival: true,
       isFeatured: true,
-      inStock: true,
+      inStock: productData.inStock ?? true,
       hallmarkCertified: true,
     };
-    setProducts((prev) => [newP, ...prev]);
+
+    setProducts((prev) => {
+      const exists = prev.some((p) => p.id === newP.id);
+      if (exists) return prev.map((p) => (p.id === newP.id ? { ...p, ...newP } : p));
+      return [newP, ...prev];
+    });
+    if (selectedProductDetail && productData.id === selectedProductDetail.id) {
+      setSelectedProductDetail(newP);
+    }
+    addToast('Product Saved', 'Saved product changes to active catalog.');
   };
 
   const handleDeleteProduct = async (id: string) => {
     try {
-      await safeFetchJson(`/api/admin/products/${id}`, { method: 'DELETE' });
+      const data = await safeFetchJson<{ success?: boolean; products?: Product[] }>(`/api/admin/products/${id}`, { method: 'DELETE' });
+      if (data?.products) {
+        setProducts(data.products);
+        if (selectedProductDetail && selectedProductDetail.id === id) {
+          setSelectedProductDetail(null);
+        }
+        addToast('Product Deleted', 'Item removed permanently from database catalog.');
+        return;
+      }
     } catch (e) {}
+
     setProducts((prev) => prev.filter((p) => p.id !== id));
+    if (selectedProductDetail && selectedProductDetail.id === id) {
+      setSelectedProductDetail(null);
+    }
+    addToast('Product Deleted', 'Item removed from active catalog.', 'info');
+  };
+
+  const handleAddBanner = async (banner: Banner) => {
+    setBanners((prev) => [...prev, banner]);
+    try {
+      const data = await safeFetchJson<{ banners?: Banner[] }>('/api/admin/banners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(banner),
+      });
+      if (data?.banners) setBanners(data.banners);
+      addToast('Banner Published', 'Advertisement banner saved to database.');
+    } catch (e) {
+      addToast('Banner Published', 'Ad banner added to active session.', 'info');
+    }
+  };
+
+  const handleDeleteBanner = async (id: string) => {
+    setBanners((prev) => prev.filter((b) => b.id !== id));
+    try {
+      const data = await safeFetchJson<{ banners?: Banner[] }>(`/api/admin/banners/${id}`, { method: 'DELETE' });
+      if (data?.banners) setBanners(data.banners);
+      addToast('Banner Removed', 'Advertisement banner deleted from database.');
+    } catch (e) {
+      addToast('Banner Removed', 'Banner removed from session.', 'info');
+    }
+  };
+
+  const handleUpdateCategories = async (categories: CategoryItem[]) => {
+    setCustomCategories(categories);
+    try {
+      await safeFetchJson('/api/admin/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories }),
+      });
+      addToast('Categories Updated', 'Category list saved to database.');
+    } catch (e) {
+      addToast('Categories Updated', 'Category list saved locally.', 'info');
+    }
+  };
+
+  const handleUpdateBottomBanner = async (banner: BottomBanner) => {
+    setBottomBanner(banner);
+    try {
+      const data = await safeFetchJson<{ bottomBanner?: BottomBanner }>('/api/admin/bottom-banner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(banner),
+      });
+      if (data?.bottomBanner) setBottomBanner(data.bottomBanner);
+      addToast('Bottom Banner Updated', 'Bottom banner changes published live.');
+    } catch (e) {
+      addToast('Bottom Banner Updated', 'Bottom banner updated locally.', 'info');
+    }
+  };
+
+  const handleUpdateDrawerConfig = async (cfg: DrawerConfig) => {
+    setDrawerConfig(cfg);
+    try {
+      const data = await safeFetchJson<{ drawerConfig?: DrawerConfig }>('/api/admin/drawer-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cfg),
+      });
+      if (data?.drawerConfig) setDrawerConfig(data.drawerConfig);
+      addToast('Hamburger Menu Updated', 'Hamburger drawer menu saved live.');
+    } catch (e) {
+      addToast('Hamburger Menu Updated', 'Drawer menu updated locally.', 'info');
+    }
+  };
+
+  const handleUpdateFooterConfig = async (cfg: FooterConfig) => {
+    setFooterConfig(cfg);
+    try {
+      const data = await safeFetchJson<{ footerConfig?: FooterConfig }>('/api/admin/footer-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cfg),
+      });
+      if (data?.footerConfig) setFooterConfig(data.footerConfig);
+      addToast('Footer Settings Updated', 'Footer configuration saved live.');
+    } catch (e) {
+      addToast('Footer Settings Updated', 'Footer configuration updated locally.', 'info');
+    }
   };
 
   const handleUpdateCompanyInfo = async (infoUpdate: Partial<CompanyInfo>) => {
@@ -315,8 +522,10 @@ export default function App() {
       } else {
         setCompanyInfo((prev) => ({ ...prev, ...infoUpdate }));
       }
+      addToast('Company Details Saved', 'Information updated and saved to database.');
     } catch (e) {
       setCompanyInfo((prev) => ({ ...prev, ...infoUpdate }));
+      addToast('Company Details Saved', 'Updated company details in active session.', 'info');
     }
   };
 
@@ -338,33 +547,51 @@ export default function App() {
           releaseNotes: ['Real-time rates', 'New Diwali collection'],
         });
       }
+      addToast('Version Broadcasted', `Version ${vNum} broadcasted live to all users.`);
     } catch (e) {
-      setVersionInfo({
-        currentVersion: '1.0.0',
-        latestVersion: vNum,
-        updateAvailable: true,
-        updateMessage: vMsg,
-        releaseNotes: ['Real-time rates', 'New Diwali collection'],
-      });
+      addToast('Version Broadcasted', `Broadcasted version ${vNum}.`, 'info');
     }
   };
 
-  const handleAddCategory = (catName: string) => {
-    if (!customCategories.includes(catName)) {
-      setCustomCategories((prev) => [...prev, catName]);
-    }
-  };
-
-  const handleDeleteCategory = (catName: string) => {
-    setCustomCategories((prev) => prev.filter((c) => c !== catName));
-  };
-
-  const handleUpdateProductDescription = (id: string, newDesc: string) => {
+  const handleUpdateProductDescription = async (id: string, newDesc: string) => {
     setProducts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, description: newDesc } : p))
     );
     if (selectedProductDetail && selectedProductDetail.id === id) {
       setSelectedProductDetail((prev) => (prev ? { ...prev, description: newDesc } : null));
+    }
+    try {
+      const data = await safeFetchJson<{ products?: Product[] }>('/api/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, description: newDesc }),
+      });
+      if (data?.products) setProducts(data.products);
+      addToast('Description Saved', 'Product description saved permanently to database.');
+    } catch (e) {
+      addToast('Description Saved', 'Updated description in active session.', 'info');
+    }
+  };
+
+  const handleUpdateProductImage = async (id: string, newPrimaryImg: string, newGallery: string[]) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, image: newPrimaryImg || p.image, gallery: newGallery } : p))
+    );
+    if (selectedProductDetail && selectedProductDetail.id === id) {
+      setSelectedProductDetail((prev) =>
+        prev ? { ...prev, image: newPrimaryImg || prev.image, gallery: newGallery } : null
+      );
+    }
+    try {
+      const data = await safeFetchJson<{ products?: Product[] }>('/api/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, image: newPrimaryImg, gallery: newGallery }),
+      });
+      if (data?.products) setProducts(data.products);
+      addToast('Photos Saved', 'Product images saved permanently to database.');
+    } catch (e) {
+      addToast('Photos Saved', 'Updated product photos in active session.', 'info');
     }
   };
 
@@ -374,6 +601,13 @@ export default function App() {
         darkMode ? 'bg-black text-amber-50' : 'bg-white text-amber-950'
       }`}
     >
+      {/* Animated App Launch Splash Screen */}
+      <AnimatePresence>
+        {showSplash && (
+          <SplashScreen onComplete={() => setShowSplash(false)} />
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <Header
         rates={rates}
@@ -466,8 +700,11 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4 lg:px-8 pb-12">
             {filteredProducts.length === 0 ? (
               <div className="text-center py-16 bg-amber-50/50 dark:bg-zinc-900 rounded-2xl border border-dashed border-amber-300 dark:border-zinc-800">
-                <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">
-                  No jewellery items matched your filters or search term.
+                <p className="text-base font-bold text-amber-950 dark:text-amber-300 mb-1">
+                  Not Found — This item is currently not in stock.
+                </p>
+                <p className="text-xs text-amber-800/80 dark:text-zinc-400">
+                  We could not find any matching or similar items in our live inventory.
                 </p>
                 <button
                   onClick={() => {
@@ -477,7 +714,7 @@ export default function App() {
                     setPriceRange(500000);
                     setSearchTerm('');
                   }}
-                  className="mt-3 px-4 py-2 bg-[#4A0E17] text-[#D4AF37] text-xs font-bold rounded-xl"
+                  className="mt-4 px-4 py-2 bg-[#4A0E17] text-[#D4AF37] text-xs font-bold rounded-xl"
                 >
                   Reset All Filters
                 </button>
@@ -507,7 +744,7 @@ export default function App() {
       )}
 
       {/* Footer */}
-      <Footer darkMode={darkMode} />
+      <Footer darkMode={darkMode} bottomBanner={bottomBanner} footerConfig={footerConfig} onOpenScheme={() => setActiveSection('scheme')} />
 
       {/* MODALS */}
       {/* 1. Auth OTP Modal */}
@@ -534,13 +771,23 @@ export default function App() {
         darkMode={darkMode}
         isAdmin={isAdmin}
         onUpdateProductDescription={handleUpdateProductDescription}
+        onUpdateProductImage={handleUpdateProductImage}
+        whatsappNumber={companyInfo.whatsappNumber}
       />
 
       {/* 3.1 Camera Visual Search Modal */}
       <VisualSearchModal
         isOpen={visualSearchOpen}
         onClose={() => setVisualSearchOpen(false)}
-        onApplySearch={(term) => setSearchTerm(term)}
+        onApplySearch={(term, exactProductId) => {
+          setActiveSection('catalog');
+          setSelectedCategory('All');
+          setSelectedGender('All');
+          setSelectedPurity('All');
+          setExactMatchProductId(exactProductId || null);
+          setSearchTerm(term);
+          window.scrollTo({ top: 350, behavior: 'smooth' });
+        }}
         products={products}
         darkMode={darkMode}
       />
@@ -552,6 +799,7 @@ export default function App() {
         product={whatsAppProduct}
         rates={rates}
         darkMode={darkMode}
+        whatsappNumber={companyInfo.whatsappNumber}
       />
 
       {/* 5. Shop Admin Panel Modal */}
@@ -564,14 +812,20 @@ export default function App() {
         onAddProduct={handleAddProduct}
         onDeleteProduct={handleDeleteProduct}
         banners={banners}
-        onAddBanner={(b) => setBanners((prev) => [...prev, b])}
+        onAddBanner={handleAddBanner}
+        onDeleteBanner={handleDeleteBanner}
+        bottomBanner={bottomBanner}
+        onUpdateBottomBanner={handleUpdateBottomBanner}
         onBroadcastVersionUpdate={handleBroadcastVersion}
         darkMode={darkMode}
         customCategories={customCategories}
-        onAddCategory={handleAddCategory}
-        onDeleteCategory={handleDeleteCategory}
+        onUpdateCategories={handleUpdateCategories}
         companyInfo={companyInfo}
         onUpdateCompanyInfo={handleUpdateCompanyInfo}
+        drawerConfig={drawerConfig}
+        onUpdateDrawerConfig={handleUpdateDrawerConfig}
+        footerConfig={footerConfig}
+        onUpdateFooterConfig={handleUpdateFooterConfig}
       />
 
       {/* 5.1 Dedicated Today's Live Metal Rates Screen Modal */}
@@ -676,6 +930,8 @@ export default function App() {
           setWhatsAppModalOpen(true);
         }}
         darkMode={darkMode}
+        products={products}
+        rates={rates}
       />
 
       {/* 8.2 Side Drawer (3-Line Customer Dashboard) */}
@@ -694,6 +950,8 @@ export default function App() {
         }}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
+        customCategories={customCategories}
+        drawerConfig={drawerConfig}
         onSelectCategoryFilter={(cat) => {
           setActiveSection('catalog');
           setSelectedCategory(cat);
@@ -730,11 +988,15 @@ export default function App() {
             setActiveSection('catalog');
             setSelectedCategory('All');
             setSelectedGender('All');
+          } else if (tab === 'admin') {
+            setAdminModalOpen(true);
           }
         }}
         onOpenSchemeModal={() => setActiveSection('scheme')}
         onOpenDigiGoldModal={() => setLiveRatesModalOpen(true)}
         onOpenGiftingModal={() => setGiftingModalOpen(true)}
+        isAdmin={isAdmin}
+        onOpenAdmin={() => setAdminModalOpen(true)}
       />
 
       {/* 10. In-App Version Update Pop-Up Notifier */}
@@ -748,6 +1010,12 @@ export default function App() {
           window.location.reload();
         }}
       />
+      {/* Toast Feedback Container */}
+      <ToastContainer
+        toasts={toasts}
+        onRemove={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))}
+      />
+
       <div className="h-16" /> {/* Bottom nav spacing buffer */}
     </div>
   );

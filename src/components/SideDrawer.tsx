@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, CategoryItem, DrawerConfig } from '../types';
 import {
   ArrowLeft,
   User,
@@ -38,6 +38,8 @@ interface SideDrawerProps {
   onOpenAbout: () => void;
   isAdmin: boolean;
   onOpenAdmin: () => void;
+  customCategories?: (CategoryItem | string)[];
+  drawerConfig?: DrawerConfig;
 }
 
 export const SideDrawer: React.FC<SideDrawerProps> = ({
@@ -56,8 +58,21 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
   onOpenAbout,
   isAdmin,
   onOpenAdmin,
+  customCategories = [],
+  drawerConfig,
 }) => {
   if (!isOpen) return null;
+
+  const cfg = {
+    headerTitle: drawerConfig?.headerTitle || 'SHUBHAM JEWELLERS',
+    welcomeSubtitle: drawerConfig?.welcomeSubtitle || 'Welcome to Shubham Jewellers',
+    aboutBtnText: drawerConfig?.aboutBtnText || 'About Us & Showroom Info',
+    schemeBtnTitle: drawerConfig?.schemeBtnTitle || 'Jewellery Savings Plan',
+    whatsappBtnTitle: drawerConfig?.whatsappBtnTitle || 'Direct WhatsApp Support',
+    categorySectionTitle: drawerConfig?.categorySectionTitle || 'Shop By Category',
+    shopForSectionTitle: drawerConfig?.shopForSectionTitle || 'Shop For',
+    footerTagline: drawerConfig?.footerTagline || 'Shubham Jewellers v2.1.0 • Verified BIS Hallmarked',
+  };
 
   const getGreetingName = () => {
     if (!user.isLoggedIn) return 'Shubham';
@@ -92,7 +107,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
           {/* Top Back Arrow Button Row */}
           <div className="pt-4 px-4 flex justify-between items-center bg-white dark:bg-[#121212]">
             <span className="font-serif font-extrabold text-sm text-[#4A0E17] dark:text-[#D4AF37] tracking-wider uppercase">
-              SHUBHAM JEWELLERS
+              {cfg.headerTitle}
             </span>
             <button
               onClick={onClose}
@@ -107,15 +122,19 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
           <div className="px-5 pt-4 pb-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs mb-3">
             <div className="flex items-center space-x-3">
               {/* Profile Avatar & Name */}
-              <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-500/20 text-[#4A0E17] dark:text-[#D4AF37] border border-amber-300 dark:border-amber-500/40 flex items-center justify-center shrink-0">
-                <User className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-500/20 text-[#4A0E17] dark:text-[#D4AF37] border border-amber-300 dark:border-amber-500/40 flex items-center justify-center shrink-0 overflow-hidden">
+                {user.avatar ? (
+                  <img src={user.avatar} alt={customerFirstName} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-6 h-6" />
+                )}
               </div>
               <div className="flex-1">
                 <h3 className="font-serif font-extrabold text-lg leading-tight text-zinc-950 dark:text-zinc-100">
                   Hi {customerFirstName}!
                 </h3>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 font-semibold mt-0.5">
-                  {user.isLoggedIn ? user.email : 'Welcome to Shubham Jewellers'}
+                  {user.isLoggedIn ? user.email : cfg.welcomeSubtitle}
                 </p>
               </div>
             </div>
@@ -133,7 +152,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
                 className="w-full p-3 bg-amber-50 dark:bg-zinc-800 hover:bg-amber-100 dark:hover:bg-zinc-700 text-amber-950 dark:text-amber-200 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 border border-amber-200 dark:border-zinc-700 shadow-xs transition-all active:scale-95"
               >
                 <Building2 className="w-4 h-4 text-[#4A0E17] dark:text-[#D4AF37]" />
-                <span>About Us & Showroom Info</span>
+                <span>{cfg.aboutBtnText}</span>
               </button>
             </div>
 
@@ -170,36 +189,61 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
             {/* Card 2: Shop By Section */}
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-2 shadow-xs">
               <h4 className="px-3 pt-2 pb-1 font-serif font-extrabold text-sm text-[#4A0E17] dark:text-[#D4AF37]">
-                Shop By
+                {cfg.categorySectionTitle}
               </h4>
 
               <div className="space-y-0.5 text-xs font-semibold">
-                {[
-                  { label: 'All Jewellery', cat: 'All' },
-                  { label: 'Gold', cat: 'Gold' },
-                  { label: 'Diamond', cat: 'Diamond' },
-                  { label: 'Daily Wear', cat: 'Solitaires' },
-                  { label: 'Collections', cat: 'Kundan & Antique' },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      onClose();
-                      onSelectCategoryFilter(item.cat);
-                    }}
-                    className="w-full p-3 rounded-xl flex items-center justify-between hover:bg-amber-50 dark:hover:bg-zinc-800 transition-colors text-left text-zinc-950 dark:text-zinc-100 font-bold"
-                  >
-                    <span>{item.label}</span>
-                    <ChevronRight className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
-                  </button>
-                ))}
+                <button
+                  onClick={() => {
+                    onClose();
+                    onSelectCategoryFilter('All');
+                  }}
+                  className="w-full p-2.5 rounded-xl flex items-center justify-between hover:bg-amber-50 dark:hover:bg-zinc-800 transition-colors text-left text-zinc-950 dark:text-zinc-100 font-bold"
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                    <span>All Jewellery</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
+                </button>
+
+                {customCategories.map((item, idx) => {
+                  const catName = typeof item === 'string' ? item : item.name;
+                  const catImg = typeof item === 'object' ? item.image : undefined;
+
+                  return (
+                    <button
+                      key={typeof item === 'object' ? item.id || idx : `${catName}-${idx}`}
+                      onClick={() => {
+                        onClose();
+                        onSelectCategoryFilter(catName);
+                      }}
+                      className="w-full p-2.5 rounded-xl flex items-center justify-between hover:bg-amber-50 dark:hover:bg-zinc-800 transition-colors text-left text-zinc-950 dark:text-zinc-100 font-bold"
+                    >
+                      <div className="flex items-center space-x-2.5 truncate">
+                        {catImg ? (
+                          <img
+                            src={catImg}
+                            alt={catName}
+                            referrerPolicy="no-referrer"
+                            className="w-6 h-6 rounded-full object-cover border border-amber-300 dark:border-amber-500/40 shrink-0"
+                          />
+                        ) : (
+                          <Crown className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
+                        )}
+                        <span className="truncate">{catName}</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-zinc-600 dark:text-zinc-400 shrink-0 ml-1" />
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Card 3: Shop For Section */}
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-2 shadow-xs">
               <h4 className="px-3 pt-2 pb-1 font-serif font-extrabold text-sm text-[#4A0E17] dark:text-[#D4AF37]">
-                Shop For
+                {cfg.shopForSectionTitle}
               </h4>
 
               <div className="space-y-0.5 text-xs font-semibold">
@@ -234,7 +278,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               >
                 <div className="flex items-center space-x-2">
                   <PiggyBank className="w-4 h-4 text-[#D4AF37]" />
-                  <span>Jewellery Savings Plan</span>
+                  <span>{cfg.schemeBtnTitle}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#D4AF37]" />
               </button>
@@ -248,7 +292,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               >
                 <div className="flex items-center space-x-2">
                   <MessageCircle className="w-4 h-4 text-emerald-600" />
-                  <span>Direct WhatsApp Support</span>
+                  <span>{cfg.whatsappBtnTitle}</span>
                 </div>
                 <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
               </button>
@@ -311,7 +355,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
           )}
 
           <p className="text-[10px] text-center text-zinc-600 dark:text-zinc-400 mt-2 font-mono font-semibold">
-            Shubham Jewellers v2.1.0 • Verified BIS Hallmarked
+            {cfg.footerTagline}
           </p>
         </div>
       </div>

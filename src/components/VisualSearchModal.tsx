@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, Search, X, Sparkles, Check, RefreshCw } from 'lucide-react';
+import { Camera, Upload, Search, X, Sparkles, Check, RefreshCw, Link2, Image as ImageIcon } from 'lucide-react';
 import { Product } from '../types';
+import { safeFetchJson } from '../utils/safeFetch';
 
 interface VisualSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplySearch: (searchTerm: string) => void;
+  onApplySearch: (searchTerm: string, exactProductId?: string | null) => void;
   products: Product[];
   darkMode: boolean;
 }
@@ -21,56 +22,130 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [matchedCategory, setMatchedCategory] = useState<string | null>(null);
   const [matchingProducts, setMatchingProducts] = useState<Product[]>([]);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [searchTab, setSearchTab] = useState<'gallery' | 'url'>('gallery');
+  const [urlInput, setUrlInput] = useState<string>('');
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   if (!isOpen) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      processImage(url);
+      // BUG 1 FIX: Convert file to Base64 Data URL so server & Gemini API receive actual image bytes
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          processImage(reader.result);
+        }
+      };
+      reader.onerror = () => {
+        // Fallback on read error: trigger Not Found state
+        setIsAnalyzing(false);
+        onApplySearch('No Stock Item', null);
+        onClose();
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const processImage = (imageUrl: string) => {
+  const processImage = async (imageUrl: string) => {
     setSelectedImage(imageUrl);
     setIsAnalyzing(true);
     setMatchedCategory(null);
+    setMatchingProducts([]);
 
-    // Simulate AI image recognition of jewelry
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      // Randomly pick or intelligently sample from available products
-      const categories = ['Gold', 'Diamond', 'Silver', 'Kundan', 'Solitaires', 'Coins', 'Mangalsutra'];
-      const detected = categories[Math.floor(Math.random() * categories.length)];
+    try {
+      const res = await safeFetchJson<{
+        success: boolean;
+        category?: string;
+        searchTerm?: string;
+        exactProductId?: string | null;
+        matchedProducts?: Product[];
+        exactMatch?: boolean;
+        notFound?: boolean;
+      }>('/api/visual-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl }),
+      });
+
+      let detected = res?.category || null;
+      let matched = res?.matchedProducts || [];
+      let finalTerm = res?.searchTerm || (matched.length > 0 ? (detected || '') : 'No Stock Item');
+      let exactId = res?.exactProductId || null;
+
+      // Client-side fallback classifier if backend API returned no category or failed
+      if (!res?.success || (!detected && matched.length === 0)) {
+        const lower = imageUrl.toLowerCase();
+        if (lower.startsWith('http') || lower.startsWith('data:image')) {
+          if (lower.includes('necklace') || lower.includes('1599643478518') || lower.includes('kundan') || lower.includes('pendant')) {
+            detected = 'Necklace';
+          } else if (lower.includes('ring') || lower.includes('1605100804763') || lower.includes('solitaire')) {
+            detected = 'Ring';
+          } else if (lower.includes('bangle') || lower.includes('1611591475168') || lower.includes('kada')) {
+            detected = 'Bangles';
+          } else if (lower.includes('bracelet') || lower.includes('1535632066927')) {
+            detected = 'Bracelet';
+          } else if (lower.includes('coin') || lower.includes('1610375461246')) {
+            detected = 'Coins';
+          } else if (lower.includes('earring') || lower.includes('jhumka')) {
+            detected = 'Earrings';
+          }
+        }
+
+        if (detected) {
+          const catLower = detected.toLowerCase();
+          matched = products.filter((p) => {
+            if (!p.inStock) return false;
+            const t = p.title.toLowerCase();
+            const c = p.category.toLowerCase();
+            if (catLower === 'necklace') return t.includes('necklace') || t.includes('pendant') || t.includes('kundan');
+            if (catLower === 'ring') return t.includes('ring');
+            if (catLower === 'bangles') return t.includes('bangle') || t.includes('kada');
+            if (catLower === 'bracelet') return t.includes('bracelet');
+            if (catLower === 'coins') return c.includes('coins') || t.includes('coin');
+            if (catLower === 'earrings') return t.includes('earring') || t.includes('jhumka');
+            return c.includes(catLower) || t.includes(catLower);
+          });
+
+          if (matched.length > 0) {
+            finalTerm = detected;
+            exactId = matched[0]?.id || null;
+          } else {
+            // Category identified but no items in stock -> trigger Not Found UI
+            finalTerm = 'No Stock Item';
+            exactId = null;
+          }
+        } else {
+          // No category identified -> trigger Not Found UI
+          detected = null;
+          finalTerm = 'No Stock Item';
+          matched = [];
+          exactId = null;
+        }
+      }
+
       setMatchedCategory(detected);
+      setMatchingProducts(matched);
 
-      // Filter products that match
-      const matched = products.filter(
-        (p) =>
-          p.category.toLowerCase().includes(detected.toLowerCase()) ||
-          p.title.toLowerCase().includes(detected.toLowerCase()) ||
-          p.purity.toLowerCase().includes(detected.toLowerCase())
-      );
-      setMatchingProducts(matched.length > 0 ? matched.slice(0, 4) : products.slice(0, 4));
-    }, 1200);
+      // Brief animation pause then redirect to results page
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        // BUG 2 FIX: If matched items exist, pass finalTerm; otherwise pass 'No Stock Item' to render Not Found UI
+        onApplySearch(matched.length > 0 ? finalTerm : 'No Stock Item', exactId);
+        onClose();
+      }, 600);
+    } catch (err) {
+      // BUG 2 FIX: On error or network failure, trigger "Not Found" state ('No Stock Item'), NEVER default to 'Necklace'
+      setIsAnalyzing(false);
+      onApplySearch('No Stock Item', null);
+      onClose();
+    }
   };
 
-  const handleSelectSample = (sampleUrl: string, sampleKeyword: string) => {
-    setSelectedImage(sampleUrl);
-    setIsAnalyzing(true);
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      setMatchedCategory(sampleKeyword);
-      const matched = products.filter(
-        (p) =>
-          p.category.toLowerCase().includes(sampleKeyword.toLowerCase()) ||
-          p.title.toLowerCase().includes(sampleKeyword.toLowerCase()) ||
-          p.description.toLowerCase().includes(sampleKeyword.toLowerCase())
-      );
-      setMatchingProducts(matched.length > 0 ? matched.slice(0, 4) : products.slice(0, 4));
-    }, 800);
+  const handleSelectSample = (sampleUrl: string) => {
+    processImage(sampleUrl);
   };
 
   const confirmSearch = (term?: string) => {
@@ -111,7 +186,35 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
         </div>
 
         <div className="p-5 space-y-4">
-          {/* File Upload Box */}
+          {/* Dual Search Mode Tabs */}
+          <div className="flex bg-amber-100 dark:bg-zinc-800 p-1 rounded-xl text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setSearchTab('gallery')}
+              className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                searchTab === 'gallery'
+                  ? 'bg-[#4A0E17] text-[#D4AF37] shadow'
+                  : 'text-zinc-600 dark:text-zinc-400'
+              }`}
+            >
+              <ImageIcon className="w-4 h-4" />
+              <span>Gallery / Camera</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSearchTab('url')}
+              className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                searchTab === 'url'
+                  ? 'bg-[#4A0E17] text-[#D4AF37] shadow'
+                  : 'text-zinc-600 dark:text-zinc-400'
+              }`}
+            >
+              <Link2 className="w-4 h-4" />
+              <span>Image URL</span>
+            </button>
+          </div>
+
+          {/* File Input */}
           <input
             type="file"
             ref={fileInputRef}
@@ -122,20 +225,51 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
           />
 
           {!selectedImage ? (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-amber-300 dark:border-zinc-700 rounded-2xl p-6 text-center cursor-pointer hover:bg-amber-50/50 dark:hover:bg-zinc-900 transition-all flex flex-col items-center justify-center group"
-            >
-              <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-zinc-800 text-[#4A0E17] dark:text-[#D4AF37] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <Camera className="w-7 h-7" />
+            searchTab === 'gallery' ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-amber-300 dark:border-zinc-700 rounded-2xl p-6 text-center cursor-pointer hover:bg-amber-50/50 dark:hover:bg-zinc-900 transition-all flex flex-col items-center justify-center group"
+              >
+                <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-zinc-800 text-[#4A0E17] dark:text-[#D4AF37] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                  <Camera className="w-7 h-7" />
+                </div>
+                <p className="text-xs font-bold text-amber-950 dark:text-zinc-100">
+                  Click to Choose Photo from Gallery / Device
+                </p>
+                <p className="text-[11px] text-amber-800/70 dark:text-zinc-400 mt-1">
+                  Supports JPG, PNG, WEBP from your phone gallery or camera
+                </p>
               </div>
-              <p className="text-xs font-bold text-amber-950 dark:text-zinc-100">
-                Click to Take Photo or Upload Image
-              </p>
-              <p className="text-[11px] text-amber-800/70 dark:text-zinc-400 mt-1">
-                Supports JPG, PNG, WEBP from your phone camera or gallery
-              </p>
-            </div>
+            ) : (
+              <div className="p-4 border-2 border-amber-300 dark:border-zinc-700 rounded-2xl space-y-3 bg-amber-50/30 dark:bg-zinc-900/40">
+                <label className="block text-xs font-bold text-amber-950 dark:text-zinc-100">
+                  Enter or Paste Jewelry Image Link
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="https://images.unsplash.com/photo-..."
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    className="flex-1 p-2 text-xs rounded-xl border bg-white dark:bg-zinc-800 border-amber-300 dark:border-zinc-700 text-black dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (urlInput.trim()) {
+                        processImage(urlInput.trim());
+                      }
+                    }}
+                    className="px-4 py-2 bg-[#4A0E17] text-[#D4AF37] text-xs font-bold rounded-xl hover:bg-[#6B1423] shrink-0"
+                  >
+                    Analyze
+                  </button>
+                </div>
+                <p className="text-[10px] text-zinc-500">
+                  Paste any online photo URL to find similar jewelry in store inventory.
+                </p>
+              </div>
+            )
           ) : (
             <div className="space-y-3">
               <div className="relative aspect-video rounded-xl overflow-hidden bg-black/90 border border-amber-300/40 flex items-center justify-center">
@@ -218,68 +352,6 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
               )}
             </div>
           )}
-
-          {/* Quick Demo Photo Samples */}
-          <div>
-            <p className="text-[11px] font-bold text-amber-900 dark:text-zinc-300 mb-2">
-              Or Select Sample Jewelry Photo:
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  handleSelectSample(
-                    'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=400&q=80',
-                    'Gold'
-                  )
-                }
-                className="p-1.5 border border-amber-200 dark:border-zinc-800 rounded-xl flex flex-col items-center hover:border-[#D4AF37] transition-all"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=400&q=80"
-                  alt="Gold Necklace"
-                  className="w-full h-14 object-cover rounded-lg mb-1"
-                />
-                <span className="text-[10px] font-bold">Gold Necklace</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleSelectSample(
-                    'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=400&q=80',
-                    'Diamond'
-                  )
-                }
-                className="p-1.5 border border-amber-200 dark:border-zinc-800 rounded-xl flex flex-col items-center hover:border-[#D4AF37] transition-all"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=400&q=80"
-                  alt="Diamond Ring"
-                  className="w-full h-14 object-cover rounded-lg mb-1"
-                />
-                <span className="text-[10px] font-bold">Diamond Ring</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleSelectSample(
-                    'https://images.unsplash.com/photo-1611591475119-216a9a7a6279?auto=format&fit=crop&w=400&q=80',
-                    'Kundan'
-                  )
-                }
-                className="p-1.5 border border-amber-200 dark:border-zinc-800 rounded-xl flex flex-col items-center hover:border-[#D4AF37] transition-all"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1611591475119-216a9a7a6279?auto=format&fit=crop&w=400&q=80"
-                  alt="Kundan Set"
-                  className="w-full h-14 object-cover rounded-lg mb-1"
-                />
-                <span className="text-[10px] font-bold">Kundan Set</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

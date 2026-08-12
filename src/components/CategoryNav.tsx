@@ -1,5 +1,5 @@
 import React from 'react';
-import { Category, Gender, Purity } from '../types';
+import { Category, Gender, Purity, CategoryItem } from '../types';
 import { Coins, Sparkles, Gem, Shield, Crown, Filter, Check } from 'lucide-react';
 
 interface CategoryNavProps {
@@ -12,7 +12,7 @@ interface CategoryNavProps {
   priceRange: number; // max price
   setPriceRange: (val: number) => void;
   darkMode: boolean;
-  customCategories?: string[];
+  customCategories?: (CategoryItem | string)[];
 }
 
 export const CategoryNav: React.FC<CategoryNavProps> = ({
@@ -27,9 +27,17 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
   darkMode,
   customCategories = ['Gold', 'Diamond', 'Silver', 'Coins', 'Solitaires'],
 }) => {
-  const allCategories = ['All', ...customCategories];
+  const normalizedCategories: { name: string; image?: string }[] = [
+    { name: 'All' },
+    ...customCategories.map((c: CategoryItem | string) =>
+      typeof c === 'string' ? { name: c } : { name: c.name, image: c.image }
+    ),
+  ];
 
-  const getCategoryIcon = (name: string) => {
+  const getCategoryIcon = (name: string, image?: string) => {
+    if (image) {
+      return <img src={image} alt={name} referrerPolicy="no-referrer" className="w-5 h-5 rounded-full object-cover" />;
+    }
     switch (name.toLowerCase()) {
       case 'gold':
         return <Crown className="w-4 h-4" />;
@@ -51,7 +59,8 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
     <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4">
       {/* Category Icon Cards */}
       <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-7 gap-2.5 mb-4">
-        {allCategories.map((catName) => {
+        {normalizedCategories.map((catObj) => {
+          const catName = catObj.name;
           const isActive = selectedCategory === catName;
           return (
             <button
@@ -72,7 +81,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
                     : 'bg-amber-100 dark:bg-zinc-700 text-amber-800 dark:text-amber-300'
                 }`}
               >
-                {getCategoryIcon(catName)}
+                {getCategoryIcon(catName, catObj.image)}
               </div>
               <span className="text-xs font-serif tracking-tight truncate w-full text-center">
                 {catName === 'All' ? 'All Jewel' : catName}

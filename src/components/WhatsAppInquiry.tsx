@@ -9,6 +9,7 @@ interface WhatsAppInquiryProps {
   product: Product | null;
   rates: GoldRates;
   darkMode: boolean;
+  whatsappNumber?: string;
 }
 
 export const WhatsAppInquiryModal: React.FC<WhatsAppInquiryProps> = ({
@@ -17,8 +18,14 @@ export const WhatsAppInquiryModal: React.FC<WhatsAppInquiryProps> = ({
   product,
   rates,
   darkMode,
+  whatsappNumber,
 }) => {
-  const shopPhone = '919876543210';
+  const cleanDigits = (whatsappNumber || '919820012345').replace(/[^0-9]/g, '');
+  const shopPhone = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+  const displayPhone = shopPhone.startsWith('91') && shopPhone.length === 12 
+    ? `+91 ${shopPhone.slice(2)}` 
+    : `+${shopPhone}`;
+
   const [editedMessage, setEditedMessage] = useState('');
 
   useEffect(() => {
@@ -97,7 +104,7 @@ export const WhatsAppInquiryModal: React.FC<WhatsAppInquiryProps> = ({
             className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-all flex items-center justify-center space-x-2 active:scale-95"
           >
             <MessageCircle className="w-4 h-4 fill-white" />
-            <span>Send Message on WhatsApp (+91 98765 43210)</span>
+            <span>Send Message on WhatsApp ({displayPhone})</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>

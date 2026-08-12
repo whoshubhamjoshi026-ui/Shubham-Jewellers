@@ -1,10 +1,11 @@
 import React from 'react';
 import { X, Grid, Sparkles, ArrowRight, ChevronRight } from 'lucide-react';
+import { CategoryItem } from '../types';
 
 interface CategoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  categories: string[];
+  categories: (CategoryItem | string)[];
   selectedCategory: string;
   onSelectCategory: (cat: string) => void;
   darkMode: boolean;
@@ -82,15 +83,16 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
           </button>
 
           <div className="grid grid-cols-2 gap-3 pt-2">
-            {categories.map((cat) => {
-              const img = categoryThumbnails[cat] || defaultThumb;
-              const isSelected = selectedCategory === cat;
+            {categories.map((item, idx) => {
+              const catName = typeof item === 'string' ? item : item.name;
+              const catImg = (typeof item === 'object' && item.image) ? item.image : (categoryThumbnails[catName] || defaultThumb);
+              const isSelected = selectedCategory === catName;
 
               return (
                 <button
-                  key={cat}
+                  key={typeof item === 'object' ? item.id || idx : `${catName}-${idx}`}
                   onClick={() => {
-                    onSelectCategory(cat);
+                    onSelectCategory(catName);
                     onClose();
                   }}
                   className={`group relative rounded-xl overflow-hidden border shadow-sm text-left transition-all hover:scale-[1.02] ${
@@ -100,11 +102,11 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
                   }`}
                 >
                   <div className="h-28 w-full relative">
-                    <img src={img} alt={cat} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    <img src={catImg} alt={catName} referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                   </div>
                   <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white">
-                    <span className="font-serif font-bold text-xs truncate drop-shadow">{cat}</span>
+                    <span className="font-serif font-bold text-xs truncate drop-shadow">{catName}</span>
                     <ArrowRight className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                   </div>
                 </button>

@@ -167,10 +167,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <div className="mt-3 flex items-center justify-between gap-2">
             <button
               onClick={() => onWhatsAppInquiry(product)}
-              className="flex-1 py-2.5 px-3 bg-[#00a884] hover:bg-[#008f70] text-white rounded-xl flex items-center justify-center transition-all shadow-md active:scale-95"
+              className="flex-1 py-2.5 px-3 bg-black hover:bg-zinc-800 text-white rounded-xl flex items-center justify-center transition-all shadow-md active:scale-95 border border-zinc-700"
               title="Inquire via WhatsApp"
             >
-              <MessageCircle className="w-4 h-4 fill-white text-[#00a884]" />
+              <MessageCircle className="w-4 h-4 fill-white text-black" />
             </button>
 
             <button
