@@ -6,8 +6,8 @@ import fs from 'fs';
 import nodemailer from 'nodemailer';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-import { initialGoldRates, initialBanners, initialProducts, initialVersionInfo, initialCompanyInfo } from './src/data/initialData';
-import { GoldRates, Banner, Product, AppVersionInfo, GoldScheme, CompanyInfo, UserSyncedData } from './src/types';
+import { initialGoldRates, initialBanners, initialProducts, initialVersionInfo, initialCompanyInfo } from './src/data/initialData.js';
+import { GoldRates, Banner, Product, AppVersionInfo, GoldScheme, CompanyInfo, UserSyncedData } from './src/types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

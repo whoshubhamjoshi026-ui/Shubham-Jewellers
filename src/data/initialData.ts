@@ -1,4 +1,4 @@
-import { GoldRates, Banner, Product, AppVersionInfo, CompanyInfo } from '../types';
+import { GoldRates, Banner, Product, AppVersionInfo, CompanyInfo } from '../types.js';
 
 export const initialGoldRates: GoldRates = {
   gold24k: 7350,

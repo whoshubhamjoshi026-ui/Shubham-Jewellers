@@ -3,8 +3,8 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import nodemailer from 'nodemailer';
-import { initialGoldRates, initialBanners, initialProducts, initialVersionInfo, initialCompanyInfo } from '../src/data/initialData';
-import { GoldRates, Banner, Product, AppVersionInfo, GoldScheme, CompanyInfo, UserSyncedData } from '../src/types';
+import { initialGoldRates, initialBanners, initialProducts, initialVersionInfo, initialCompanyInfo } from '../src/data/initialData.js';
+import { GoldRates, Banner, Product, AppVersionInfo, GoldScheme, CompanyInfo, UserSyncedData } from '../src/types.js';
 
 const app = express();
 
