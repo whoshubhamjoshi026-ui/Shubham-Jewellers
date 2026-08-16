@@ -172,21 +172,37 @@ export default function App() {
   const [wishlist, setWishlist] = useState<Product[]>([]);
 
   // Zero Data Loss Account Sync: Restore remote user data on login or load
+  // FIXED: fetches products fresh (via /api/products) at restore time instead
+  // of relying on whatever "products" was already in memory — previously this
+  // could still be the hardcoded defaults if the catalog hadn't finished
+  // loading yet, which silently caused the wishlist to restore as empty.
+  // Also introduces `dataRestored`, which the save-effect below now waits on,
+  // so it never overwrites the server's saved cart/wishlist with an empty one
+  // before this restore has actually finished (that race was wiping data).
+  const [dataRestored, setDataRestored] = useState<boolean>(false);
+
   useEffect(() => {
     if (user.isLoggedIn && user.email) {
-      safeFetchJson(`/api/user-data/${encodeURIComponent(user.email)}`)
-        .then((data) => {
-          if (data?.success && data.userData) {
-            const ud = data.userData;
+      setDataRestored(false);
+      (async () => {
+        try {
+          const [userDataRes, productsRes] = await Promise.all([
+            safeFetchJson<{ success?: boolean; userData?: any }>(`/api/user-data/${encodeURIComponent(user.email)}`),
+            safeFetchJson<{ success?: boolean; products?: Product[] }>('/api/products'),
+          ]);
+
+          const freshProducts = (productsRes?.success && productsRes.products) ? productsRes.products : products;
+
+          if (userDataRes?.success && userDataRes.userData) {
+            const ud = userDataRes.userData;
             if (ud.profile) setUser((prev) => ({ ...prev, ...ud.profile }));
-            // ✅ FIXED: Always set cart/wishlist from this user's saved data —
-            // including resetting to empty when they have none saved. Previously
-            // this only ran when the arrays were non-empty, so a user with an
-            // empty saved cart/wishlist would keep seeing whatever was left over
-            // in memory from the previously logged-in user on this device.
+            // Always set cart/wishlist from this user's saved data — including
+            // resetting to empty when they have none saved, so a user with an
+            // empty saved cart/wishlist never keeps seeing leftovers from
+            // whoever was previously logged in on this device.
             setCart(ud.cart && ud.cart.length > 0 ? ud.cart : []);
             const restoredWish = ud.wishlistIds && ud.wishlistIds.length > 0
-              ? products.filter((p) => ud.wishlistIds.includes(p.id))
+              ? freshProducts.filter((p: Product) => ud.wishlistIds.includes(p.id))
               : [];
             setWishlist(restoredWish);
           } else {
@@ -194,15 +210,24 @@ export default function App() {
             setCart([]);
             setWishlist([]);
           }
-        })
-        .catch(() => {});
+        } catch (e) {
+          // ignore — keep whatever was already in memory
+        } finally {
+          setDataRestored(true);
+        }
+      })();
+    } else {
+      setDataRestored(true);
     }
   }, [user.email, user.isLoggedIn]);
 
   // Sync user state to remote backend and local storage
+  // FIXED: added the `dataRestored` guard so this never fires with an empty
+  // cart/wishlist right after login, before the restore effect above has had
+  // a chance to pull the user's saved data from the server.
   useEffect(() => {
     localStorage.setItem('sj_user', JSON.stringify(user));
-    if (user.isLoggedIn && user.email) {
+    if (user.isLoggedIn && user.email && dataRestored) {
       safeFetchJson('/api/user-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -214,7 +239,7 @@ export default function App() {
         }),
       }).catch(() => {});
     }
-  }, [user, cart, wishlist]);
+  }, [user, cart, wishlist, dataRestored]);
 
   // Real-Time Sync Polling from Express Backend
   useEffect(() => {
