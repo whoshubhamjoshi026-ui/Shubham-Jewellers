@@ -213,7 +213,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
 
                   return (
                     <button
-                      key={typeof item === 'object' ? item.id || idx : `${catName}-${idx}`}
+                      key={typeof item === 'object' ? (item.id ? `drawer-cat-${item.id}` : `drawer-cat-${idx}`) : `drawer-cat-${catName}-${idx}`}
                       onClick={() => {
                         onClose();
                         onSelectCategoryFilter(catName);

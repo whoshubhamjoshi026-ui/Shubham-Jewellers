@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shubham-jewellers-v1';
+const CACHE_NAME = 'shubham-jewellers-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -59,33 +59,27 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Handle static page / assets caching
+  // Network-first: always try to get the LATEST file from the server first
+  // (so new banners, icons, JS/CSS bundles show up immediately after an update).
+  // Only fall back to the cached copy if the network request fails (offline).
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Fetch background update for stale-while-revalidate
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
-          }
-        }).catch(() => {/* Ignore network errors when offline */});
-
-        return cachedResponse;
-      }
-
-      // Fallback to network
-      return fetch(event.request).then((response) => {
-        // Cache valid responses
-        if (event.request.method === 'GET' && response && response.status === 200 && response.type === 'basic') {
-          const responseToCache = response.clone();
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (event.request.method === 'GET' && networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
         }
-        return response;
-      }).catch(() => {
-        // Fallback for navigation requests when offline
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html') || caches.match('/');
-        }
-      });
-    })
+        return networkResponse;
+      })
+      .catch(() => {
+        // Offline fallback: serve whatever we have cached
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          // Fallback for navigation requests when offline and nothing cached
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html') || caches.match('/');
+          }
+        });
+      })
   );
 });

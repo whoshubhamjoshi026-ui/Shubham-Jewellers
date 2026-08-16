@@ -38,6 +38,7 @@ import { CartDrawer } from './components/CartDrawer';
 import { WhatsAppInquiryModal } from './components/WhatsAppInquiry';
 import { Footer } from './components/Footer';
 import { ToastContainer, ToastMessage } from './components/Toast';
+import { JewelleryLoader } from './components/JewelleryLoader';
 import { initialGoldRates, initialBanners, initialBottomBanner, initialCategoryItems, initialProducts, initialVersionInfo, initialCompanyInfo, initialDrawerConfig, initialFooterConfig } from './data/initialData';
 import { calculateProductPrice } from './utils/priceCalculator';
 import { safeFetchJson } from './utils/safeFetch';
@@ -87,7 +88,7 @@ export default function App() {
     };
   });
 
-  const [authModalOpen, setAuthModalOpen] = useState<boolean>(!user.isLoggedIn);
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
 
   // Role Control (Invisible Admin Access)
   const [isAdmin, setIsAdminState] = useState<boolean>(() => {
@@ -145,6 +146,26 @@ export default function App() {
   const [cartOpen, setCartOpen] = useState<boolean>(false);
   const [wishlistOpen, setWishlistOpen] = useState<boolean>(false);
   const [activeSection, setActiveSection] = useState<'catalog' | 'scheme'>('catalog');
+  const [isCategoryLoading, setIsCategoryLoading] = useState<boolean>(false);
+  const [isSectionLoading, setIsSectionLoading] = useState<boolean>(false);
+
+  const handleSelectCategory = (cat: string) => {
+    if (cat === selectedCategory) return;
+    setIsCategoryLoading(true);
+    setSelectedCategory(cat);
+    setTimeout(() => {
+      setIsCategoryLoading(false);
+    }, 380);
+  };
+
+  const handleSelectSection = (section: 'catalog' | 'scheme') => {
+    if (section === activeSection) return;
+    setIsSectionLoading(true);
+    setActiveSection(section);
+    setTimeout(() => {
+      setIsSectionLoading(false);
+    }, 420);
+  };
 
   // Cart & Wishlist
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -296,6 +317,10 @@ export default function App() {
 
   // Cart Handlers
   const handleAddToCart = (product: Product) => {
+    if (!user.isLoggedIn) {
+      setAuthModalOpen(true);
+      return;
+    }
     const priceInfo = calculateProductPrice(product, rates);
     setCart((prev) => {
       const exists = prev.find((item) => item.product.id === product.id);
@@ -328,6 +353,10 @@ export default function App() {
 
   // Wishlist Handlers
   const handleToggleWishlist = (product: Product) => {
+    if (!user.isLoggedIn) {
+      setAuthModalOpen(true);
+      return;
+    }
     setWishlist((prev) => {
       const exists = prev.some((p) => p.id === product.id);
       if (exists) {
@@ -622,7 +651,7 @@ export default function App() {
         cartCount={cart.reduce((acc, i) => acc + i.quantity, 0)}
         wishlistCount={wishlist.length}
         onOpenAdmin={() => setAdminModalOpen(true)}
-        onOpenScheme={() => setActiveSection('scheme')}
+        onOpenScheme={() => handleSelectSection('scheme')}
         onOpenWhatsApp={() => {
           setWhatsAppProduct(products[0] || null);
           setWhatsAppModalOpen(true);
@@ -632,33 +661,43 @@ export default function App() {
         onOpenVisualSearch={() => setVisualSearchOpen(true)}
         onOpenAbout={() => setAboutModalOpen(true)}
         activeSection={activeSection}
-        setActiveSection={setActiveSection}
+        setActiveSection={handleSelectSection}
         isAdmin={isAdmin}
         setIsAdmin={setIsAdmin}
       />
 
+      {/* Dynamic Section Loader */}
+      {isSectionLoading && (
+        <div className="py-20 flex items-center justify-center min-h-[50vh]">
+          <JewelleryLoader
+            message={activeSection === 'scheme' ? 'Opening Shubham Gold Savings Scheme...' : 'Loading Showroom Collection...'}
+            size="lg"
+          />
+        </div>
+      )}
+
       {/* Main View Area */}
-      {activeSection === 'scheme' ? (
+      {!isSectionLoading && activeSection === 'scheme' ? (
         <GoldSavingsScheme
           user={user}
           onOpenAuth={() => setAuthModalOpen(true)}
           darkMode={darkMode}
         />
-      ) : (
+      ) : !isSectionLoading && (
         <main className="animate-fade-in">
           {/* Hero Carousel */}
           <HeroCarousel
             banners={banners}
             rates={rates}
-            onSelectCategory={(cat) => setSelectedCategory(cat)}
-            onOpenScheme={() => setActiveSection('scheme')}
+            onSelectCategory={(cat) => handleSelectCategory(cat)}
+            onOpenScheme={() => handleSelectSection('scheme')}
             onOpenLiveRates={() => setLiveRatesModalOpen(true)}
           />
 
           {/* Category Navigation & Filters */}
           <CategoryNav
             selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
+            setSelectedCategory={handleSelectCategory}
             selectedGender={selectedGender}
             setSelectedGender={setSelectedGender}
             selectedPurity={selectedPurity}
@@ -684,7 +723,7 @@ export default function App() {
             {selectedCategory !== 'All' && (
               <button
                 onClick={() => {
-                  setSelectedCategory('All');
+                  handleSelectCategory('All');
                   setSelectedGender('All');
                   setSelectedPurity('All');
                   setSearchTerm('');
@@ -696,9 +735,16 @@ export default function App() {
             )}
           </div>
 
-          {/* Product Grid */}
+          {/* Product Grid / Dynamic Jewellery Category Loader */}
           <div className="max-w-7xl mx-auto px-4 lg:px-8 pb-12">
-            {filteredProducts.length === 0 ? (
+            {isCategoryLoading ? (
+              <div className="py-20 flex items-center justify-center min-h-[300px]">
+                <JewelleryLoader
+                  message={`Curating ${selectedCategory === 'All' ? 'Royal Jewellery' : selectedCategory} Collection...`}
+                  size="md"
+                />
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="text-center py-16 bg-amber-50/50 dark:bg-zinc-900 rounded-2xl border border-dashed border-amber-300 dark:border-zinc-800">
                 <p className="text-base font-bold text-amber-950 dark:text-amber-300 mb-1">
                   Not Found — This item is currently not in stock.
@@ -708,7 +754,7 @@ export default function App() {
                 </p>
                 <button
                   onClick={() => {
-                    setSelectedCategory('All');
+                    handleSelectCategory('All');
                     setSelectedGender('All');
                     setSelectedPurity('All');
                     setPriceRange(500000);
@@ -721,7 +767,7 @@ export default function App() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                {filteredProducts.map((product) => (
+                {filteredProducts.map((product, idx) => (
                   <ProductCard
                     key={product.id}
                     product={product}
@@ -735,6 +781,7 @@ export default function App() {
                       setWhatsAppModalOpen(true);
                     }}
                     darkMode={darkMode}
+                    index={idx}
                   />
                 ))}
               </div>
@@ -858,33 +905,36 @@ export default function App() {
       {wishlistOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
           <div
-            className={`max-w-md w-full p-6 rounded-2xl border shadow-2xl ${
-              darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-[#FAF7F2] border-amber-200 text-amber-950'
+            className={`max-w-md w-full p-6 rounded-3xl border shadow-2xl ${
+              darkMode ? 'bg-[#151012] border-zinc-800 text-zinc-100' : 'bg-[#FAF8F5] border-[#D4AF37]/50 text-amber-950'
             }`}
           >
-            <div className="flex items-center justify-between mb-4 border-b pb-2">
-              <h3 className="text-base font-bold font-serif flex items-center gap-1.5 text-[#4A0E17] dark:text-[#D4AF37]">
+            <div className="flex items-center justify-between mb-4 border-b border-[#D4AF37]/30 pb-3">
+              <h3 className="text-base sm:text-lg font-bold font-cinzel flex items-center gap-2 text-[#4A0E17] dark:text-[#F3E5AB]">
                 <Heart className="w-5 h-5 text-rose-600 fill-current" />
                 <span>Your Saved Wishlist ({wishlist.length})</span>
               </h3>
-              <button onClick={() => setWishlistOpen(false)} className="font-bold text-xs">
+              <button onClick={() => setWishlistOpen(false)} className="font-bold text-xs p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 transition-all">
                 ✕
               </button>
             </div>
 
             {wishlist.length === 0 ? (
-              <p className="text-xs text-amber-900/80 dark:text-zinc-400 py-8 text-center">
-                No saved jewellery items yet. Click the heart icon on any product card!
-              </p>
+              <div className="py-10 text-center space-y-2">
+                <Heart className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mx-auto" />
+                <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                  No saved jewellery items yet. Click the heart icon on any product card!
+                </p>
+              </div>
             ) : (
               <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
                 {wishlist.map((item) => (
-                  <div key={item.id} className="p-3 rounded-xl border bg-white dark:bg-zinc-800 flex items-center justify-between text-xs">
-                    <div className="flex items-center space-x-2">
-                      <img src={item.image} alt={item.title} className="w-12 h-12 object-cover rounded-lg" />
+                  <div key={item.id} className={`p-3 rounded-2xl border flex items-center justify-between text-xs shadow-xs ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200/80'}`}>
+                    <div className="flex items-center space-x-3">
+                      <img src={item.image} alt={item.title} className="w-14 h-14 object-cover rounded-xl border border-amber-200/60 dark:border-zinc-700" />
                       <div>
-                        <strong className={`block font-serif font-bold line-clamp-1 ${darkMode ? 'text-white' : 'text-black'}`}>{item.title}</strong>
-                        <span className={`text-[10px] ${darkMode ? 'text-zinc-400' : 'text-zinc-800'}`}>{item.purity} • {item.weightGrams}g</span>
+                        <strong className={`block font-playfair font-bold text-sm line-clamp-1 ${darkMode ? 'text-zinc-100' : 'text-zinc-900'}`}>{item.title}</strong>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">{item.purity} • {item.weightGrams}g</span>
                       </div>
                     </div>
                     <button
@@ -892,7 +942,7 @@ export default function App() {
                         handleAddToCart(item);
                         setWishlistOpen(false);
                       }}
-                      className="px-3 py-1.5 bg-[#4A0E17] text-[#D4AF37] font-bold text-[11px] rounded-lg"
+                      className="px-4 py-2 bg-gradient-to-r from-[#4A0E17] via-[#5A101C] to-[#3B0813] text-[#F3E5AB] font-bold text-xs rounded-xl shadow-luxury hover:brightness-110 active:scale-95 border border-[#D4AF37]/40 font-cinzel tracking-wider"
                     >
                       Bag
                     </button>

@@ -27,10 +27,12 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
   darkMode,
   customCategories = ['Gold', 'Diamond', 'Silver', 'Coins', 'Solitaires'],
 }) => {
-  const normalizedCategories: { name: string; image?: string }[] = [
-    { name: 'All' },
-    ...customCategories.map((c: CategoryItem | string) =>
-      typeof c === 'string' ? { name: c } : { name: c.name, image: c.image }
+  const normalizedCategories: { id: string; name: string; image?: string }[] = [
+    { id: 'cat-all', name: 'All' },
+    ...customCategories.map((c: CategoryItem | string, idx: number) =>
+      typeof c === 'string'
+        ? { id: `cat-str-${idx}-${c}`, name: c }
+        : { id: c.id || `cat-item-${idx}-${c.name}`, name: c.name, image: c.image }
     ),
   ];
 
@@ -56,35 +58,35 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
   const purities: (Purity | 'All')[] = ['All', '24K', '22K', '18K', '999 Silver', '925 Silver'];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 sm:py-3.5">
       {/* Category Icon Cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-7 gap-2.5 mb-4">
-        {normalizedCategories.map((catObj) => {
+      <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-7 gap-2 sm:gap-2.5 mb-3.5">
+        {normalizedCategories.map((catObj, idx) => {
           const catName = catObj.name;
           const isActive = selectedCategory === catName;
           return (
             <button
-              key={catName}
+              key={catObj.id || `${catName}-${idx}`}
               onClick={() => setSelectedCategory(catName)}
-              className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${
+              className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center transition-all duration-300 transform active:scale-95 ${
                 isActive
-                  ? 'bg-[#4A0E17] text-[#D4AF37] border-[#D4AF37] shadow-md scale-105 font-bold'
+                  ? 'bg-gradient-to-b from-[#4A0E17] to-[#30050D] text-[#F3E5AB] border-[#D4AF37] shadow-luxury font-bold scale-[1.02] ring-1 ring-[#D4AF37]/50'
                   : darkMode
-                  ? 'bg-zinc-800 border-zinc-700 text-zinc-200 hover:bg-zinc-700'
-                  : 'bg-white border-amber-200 text-amber-950 hover:bg-amber-50 shadow-sm'
+                  ? 'bg-zinc-900/80 border-zinc-800 text-zinc-300 hover:border-[#D4AF37]/40 hover:bg-zinc-800/90 shadow-xs'
+                  : 'bg-white/90 border-amber-200/70 text-amber-950 hover:border-[#D4AF37]/60 hover:bg-amber-50/50 shadow-luxury'
               }`}
             >
               <div
-                className={`p-2 rounded-full mb-1 ${
+                className={`p-2 rounded-full mb-1 transition-transform duration-300 ${
                   isActive
-                    ? 'bg-[#D4AF37]/20 text-[#D4AF37]'
-                    : 'bg-amber-100 dark:bg-zinc-700 text-amber-800 dark:text-amber-300'
+                    ? 'bg-[#D4AF37]/25 text-[#F3E5AB] scale-105 shadow-xs'
+                    : 'bg-amber-100/70 dark:bg-zinc-800 text-amber-900 dark:text-amber-300'
                 }`}
               >
                 {getCategoryIcon(catName, catObj.image)}
               </div>
-              <span className="text-xs font-serif tracking-tight truncate w-full text-center">
-                {catName === 'All' ? 'All Jewel' : catName}
+              <span className="text-[11px] font-cinzel tracking-wider truncate w-full text-center">
+                {catName === 'All' ? 'All Jewels' : catName}
               </span>
             </button>
           );
@@ -93,27 +95,27 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
 
       {/* Filter Row */}
       <div
-        className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs ${
+        className={`p-2.5 sm:p-3 rounded-2xl border flex flex-wrap items-center justify-between gap-2 sm:gap-3 text-xs shadow-xs transition-all ${
           darkMode
-            ? 'bg-zinc-900 border-zinc-800 text-zinc-300'
-            : 'bg-amber-50/60 border-amber-200/80 text-amber-950'
+            ? 'bg-[#151012] border-zinc-800/80 text-zinc-300'
+            : 'bg-[#FDFBF7] border-amber-200/70 text-amber-950'
         }`}
       >
         {/* Gender Filter */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-1">
-          <span className="font-bold text-amber-800 dark:text-amber-400 flex items-center gap-1 shrink-0">
-            <Filter className="w-3.5 h-3.5" /> For:
+        <div className="flex items-center space-x-1 sm:space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
+          <span className="font-bold text-[#4A0E17] dark:text-[#D4AF37] flex items-center gap-1 shrink-0 font-cinzel text-[10.5px] uppercase tracking-wider">
+            <Filter className="w-3 h-3 text-[#D4AF37]" /> For:
           </span>
           {genders.map((g) => (
             <button
               key={g}
               onClick={() => setSelectedGender(g)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors shrink-0 ${
+              className={`px-2.5 py-1 rounded-full text-[10.5px] font-medium transition-all shrink-0 active:scale-95 ${
                 selectedGender === g
-                  ? 'bg-[#D4AF37] text-[#4A0E17] font-bold shadow-sm'
+                  ? 'bg-gradient-to-r from-[#ECC86A] to-[#D4AF37] text-[#2B050D] font-bold shadow-xs'
                   : darkMode
-                  ? 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                  : 'bg-white text-amber-900 hover:bg-amber-100 border border-amber-200'
+                  ? 'bg-zinc-800/80 text-zinc-300 hover:text-white border border-zinc-700/50'
+                  : 'bg-white text-amber-950 hover:bg-amber-100/50 border border-amber-200/80'
               }`}
             >
               {g}
@@ -122,18 +124,18 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
         </div>
 
         {/* Purity Filter */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-1">
-          <span className="font-bold text-amber-800 dark:text-amber-400 shrink-0">Purity:</span>
+        <div className="flex items-center space-x-1 sm:space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
+          <span className="font-bold text-[#4A0E17] dark:text-[#D4AF37] shrink-0 font-cinzel text-[10.5px] uppercase tracking-wider">Purity:</span>
           {purities.map((p) => (
             <button
               key={p}
               onClick={() => setSelectedPurity(p)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors shrink-0 ${
+              className={`px-2.5 py-1 rounded-full text-[10.5px] font-medium transition-all shrink-0 active:scale-95 ${
                 selectedPurity === p
-                  ? 'bg-[#4A0E17] text-[#D4AF37] border border-[#D4AF37] font-bold shadow-sm'
+                  ? 'bg-[#4A0E17] text-[#F3E5AB] border border-[#D4AF37] font-bold shadow-xs'
                   : darkMode
-                  ? 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                  : 'bg-white text-amber-900 hover:bg-amber-100 border border-amber-200'
+                  ? 'bg-zinc-800/80 text-zinc-300 hover:text-white border border-zinc-700/50'
+                  : 'bg-white text-amber-950 hover:bg-amber-100/50 border border-amber-200/80'
               }`}
             >
               {p}
@@ -143,8 +145,8 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
 
         {/* Max Price Slider */}
         <div className="flex items-center space-x-2 shrink-0">
-          <span className="font-bold text-amber-800 dark:text-amber-400 text-[11px]">
-            Max Price: ₹{(priceRange / 1000).toFixed(0)}k
+          <span className="font-bold text-[#4A0E17] dark:text-[#D4AF37] text-[10.5px] font-cinzel tracking-wider uppercase">
+            Max: ₹{(priceRange / 1000).toFixed(0)}k
           </span>
           <input
             type="range"
@@ -153,7 +155,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
             step={10000}
             value={priceRange}
             onChange={(e) => setPriceRange(Number(e.target.value))}
-            className="w-24 accent-[#D4AF37] cursor-pointer"
+            className="w-20 sm:w-24 accent-[#D4AF37] cursor-pointer"
           />
         </div>
       </div>

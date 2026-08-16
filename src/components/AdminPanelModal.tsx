@@ -455,10 +455,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       id: `b-${Date.now()}`,
       title: bTitle,
       subtitle: bSubtitle || 'Exclusive Festival Offer',
+      image: bImage,
       imageUrl: bImage,
+      discountBadge: bTag || 'SPECIAL OFFER',
       discountTag: bTag || 'SPECIAL OFFER',
       ctaText: bCta || 'Explore Collection',
-      category: 'All',
+      categoryLink: 'Gold',
     });
 
     setBSuccessMsg('New advertisement banner published!');
@@ -728,9 +730,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       onChange={(e) => setPCategory(e.target.value)}
                       className="w-full p-2 rounded border bg-white dark:bg-zinc-800 font-bold"
                     >
-                      {customCategories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
+                      {getNormalizedCategories().map((cat) => (
+                        <option key={cat.id || cat.name} value={cat.name}>
+                          {cat.name}
                         </option>
                       ))}
                     </select>

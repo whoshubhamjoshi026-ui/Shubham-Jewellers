@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GoldRates, UserProfile } from '../types';
 import { formatINR } from '../utils/priceCalculator';
 import { getApiUrl } from '../utils/safeFetch';
+import { ShubhamLogo } from './ShubhamLogo';
 import {
   Sun,
   Moon,
@@ -175,61 +176,69 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 shadow-md">
+    <header className="sticky top-0 z-40 shadow-luxury transition-all duration-300">
       {/* Main Header Navigation */}
       <div
         className={`${
           darkMode
-            ? 'bg-black text-amber-50 border-b border-zinc-900'
-            : 'bg-white text-amber-950 border-b border-amber-200/80'
-        } px-3 sm:px-4 lg:px-8 py-2 transition-colors duration-200`}
+            ? 'bg-[#120E0F]/95 backdrop-blur-md text-amber-50 border-b border-[#D4AF37]/20'
+            : 'bg-[#FAF8F5]/95 backdrop-blur-md text-amber-950 border-b border-[#D4AF37]/30'
+        } px-2 sm:px-4 lg:px-8 py-2 sm:py-2.5 transition-colors duration-300 w-full overflow-hidden`}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-1 sm:gap-4">
           {/* Group 3-Line Hamburger Menu & Brand Logo together */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2.5 shrink min-w-0">
             {/* 3-Line Hamburger Menu Button */}
             <button
               onClick={onOpenSideDrawer}
-              className="p-1.5 text-[#4A0E17] dark:text-[#D4AF37] hover:scale-105 transition-transform shrink-0 bg-transparent border-0 outline-none"
+              className="p-1.5 sm:p-2 rounded-lg text-[#4A0E17] dark:text-[#D4AF37] hover:bg-amber-500/10 active:scale-95 transition-all shrink-0 outline-none"
               title="Open Menu"
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
 
-            {/* Clean Typography Brand Name - Positioned right next to hamburger menu */}
+            {/* Clean Typography Brand Name - Luxury royal jewelry typography with emblem */}
             <button
               onClick={handleLogoClick}
-              className="flex flex-col text-left focus:outline-none relative py-0.5 shrink-0 hover:opacity-90 transition-opacity"
-              title="Shubham Jewellers"
+              className="group flex items-center space-x-1.5 sm:space-x-2 text-left focus:outline-none relative py-0.5 shrink min-w-0 transition-transform active:scale-98"
+              title="Shubham Jewellers - Royal Crafts"
             >
-              <span className="text-base sm:text-lg lg:text-xl font-extrabold tracking-wider text-[#4A0E17] dark:text-[#D4AF37] font-serif leading-none uppercase">
-                SHUBHAM
-              </span>
-              <span className="text-[9px] sm:text-[10px] font-black tracking-[0.28em] text-amber-900 dark:text-amber-300 font-sans leading-tight uppercase">
-                JEWELLERS
-              </span>
+              <div className="shrink-0">
+                <ShubhamLogo size="sm" animated={false} showRings={false} className="scale-85 sm:scale-100 shadow-xs" />
+              </div>
+              <div className="flex flex-col min-w-0 truncate">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs sm:text-base lg:text-xl font-bold tracking-[0.08em] sm:tracking-[0.12em] text-[#4A0E17] dark:text-[#F3E5AB] font-cinzel leading-none uppercase drop-shadow-xs truncate">
+                    SHUBHAM
+                  </span>
+                  <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#D4AF37] animate-sparkle opacity-80 group-hover:opacity-100 shrink-0" />
+                </div>
+                <span className="text-[7px] sm:text-[9.5px] font-semibold tracking-[0.2em] sm:tracking-[0.32em] text-amber-800 dark:text-[#D4AF37]/90 font-montserrat leading-tight uppercase mt-0.5 truncate">
+                  JEWELLERS
+                </span>
+              </div>
             </button>
           </div>
 
           {/* Search Bar on Desktop */}
           <div className="hidden md:flex flex-1 max-w-md relative mx-2 lg:mx-4">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-700/60 dark:text-amber-400/60" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-800/60 dark:text-amber-300/60" />
             <input
               type="text"
-              placeholder="Search Gold, Diamond, Kundan..."
+              placeholder="Search Royal Gold, Solitaires, Polki, Kundan..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-10 py-1.5 text-xs rounded-full border transition-all focus:outline-none focus:ring-2 focus:ring-[#D4AF37] ${
+              className={`w-full pl-10 pr-10 py-2 text-xs rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent ${
                 darkMode
-                  ? 'bg-zinc-900 border-zinc-800 text-zinc-100 placeholder-zinc-500'
-                  : 'bg-zinc-50 border-amber-200 text-amber-950 placeholder-amber-800/50'
+                  ? 'bg-zinc-900/80 border-zinc-700/80 text-zinc-100 placeholder-zinc-400 focus:bg-zinc-900'
+                  : 'bg-white/90 border-amber-200/90 text-amber-950 placeholder-amber-800/50 shadow-xs focus:bg-white'
               }`}
             />
             {onOpenVisualSearch && (
               <button
                 type="button"
                 onClick={onOpenVisualSearch}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#4A0E17] dark:text-[#D4AF37] hover:scale-110 transition-transform"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#4A0E17] dark:text-[#D4AF37] hover:scale-110 active:scale-95 transition-all"
                 title="Camera Visual Search"
               >
                 <Camera className="w-4 h-4" />
@@ -237,26 +246,18 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Top Dashboard Header Icons - Exactly the 4 requested icons */}
-          <div className="flex items-center space-x-1 sm:space-x-3 shrink-0">
-            {/* 1. Jewellery Search Icon */}
-            <button
-              onClick={onOpenVisualSearch}
-              className="p-1.5 text-[#4A0E17] dark:text-[#D4AF37] hover:opacity-75 transition-opacity bg-transparent"
-              title="Jewellery Search"
-            >
-              <Search className="w-5 h-5" />
-            </button>
+          {/* Top Dashboard Header Icons - Contained with precise sizing and shrink-0 so About icon is NEVER out of frame */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
 
             {/* 2. My Cart / Shopping Bag Icon */}
             <button
               onClick={onOpenCart}
-              className="p-1.5 text-[#4A0E17] dark:text-[#D4AF37] hover:opacity-75 transition-opacity relative bg-transparent"
+              className="p-1.5 sm:p-2 rounded-full text-[#4A0E17] dark:text-[#D4AF37] hover:bg-amber-500/10 active:scale-90 transition-all relative shrink-0"
               title="Shopping Bag"
             >
-              <ShoppingBag className="w-5 h-5" />
+              <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-[#D4AF37] text-[#4A0E17] text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-sm">
+                <span className="absolute -top-0.5 -right-0.5 bg-gradient-to-r from-[#D4AF37] to-[#AA7A1E] text-[#2A050D] text-[9px] sm:text-[10px] font-extrabold w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center shadow-md animate-pulse">
                   {cartCount}
                 </span>
               )}
@@ -265,43 +266,53 @@ export const Header: React.FC<HeaderProps> = ({
             {/* 3. View Wishlist Icon */}
             <button
               onClick={onOpenWishlist}
-              className="p-1.5 text-rose-600 dark:text-rose-400 hover:opacity-75 transition-opacity relative bg-transparent"
+              className="p-1.5 sm:p-2 rounded-full text-rose-700 dark:text-rose-400 hover:bg-rose-500/10 active:scale-90 transition-all relative shrink-0"
               title="View Wishlist"
             >
-              <Heart className="w-5 h-5" />
+              <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
               {wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 bg-rose-600 text-white text-[9px] sm:text-[10px] font-bold w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center shadow-xs">
                   {wishlistCount}
                 </span>
               )}
             </button>
 
-            {/* 4. About Icon */}
+            {/* 4. About Store Icon */}
             <button
               onClick={onOpenAbout}
-              className="p-1.5 text-[#4A0E17] dark:text-[#D4AF37] hover:opacity-75 transition-opacity bg-transparent"
-              title="About Us & Company Details"
+              className="p-1.5 sm:p-2 rounded-full text-[#4A0E17] dark:text-[#D4AF37] hover:bg-amber-500/10 active:scale-90 transition-all shrink-0"
+              title="About Shubham Jewellers"
             >
-              <Building2 className="w-5 h-5" />
+              <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
-        {/* Mobile Search Bar */}
-        <div className="mt-2 md:hidden">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-amber-700/60" />
+        {/* Mobile Search Bar - With Search icon on left and Camera button on right */}
+        <div className="mt-2.5 md:hidden">
+          <div className="relative flex items-center">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-800/60 dark:text-amber-400/60 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search Jewellery catalog..."
+              placeholder="Search Gold, Solitaires, Polki, Kundan..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-9 pr-4 py-1.5 text-xs rounded-full border ${
+              className={`w-full pl-9 pr-10 py-2 text-xs rounded-full border transition-all ${
                 darkMode
-                  ? 'bg-zinc-800 border-zinc-700 text-zinc-100 placeholder-zinc-500'
-                  : 'bg-white border-amber-200 text-amber-950 placeholder-amber-800/50'
+                  ? 'bg-zinc-900 border-zinc-700/80 text-zinc-100 placeholder-zinc-400 focus:border-[#D4AF37]'
+                  : 'bg-white border-amber-200 text-amber-950 placeholder-amber-800/50 shadow-xs focus:border-[#D4AF37]'
               }`}
             />
+            {onOpenVisualSearch && (
+              <button
+                type="button"
+                onClick={onOpenVisualSearch}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#4A0E17] dark:text-[#D4AF37] hover:scale-110 active:scale-95 transition-all"
+                title="Camera Visual Search"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>

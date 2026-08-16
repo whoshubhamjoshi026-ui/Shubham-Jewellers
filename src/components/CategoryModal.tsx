@@ -90,7 +90,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
 
               return (
                 <button
-                  key={typeof item === 'object' ? item.id || idx : `${catName}-${idx}`}
+                  key={typeof item === 'object' ? (item.id ? `cat-m-${item.id}` : `cat-m-${idx}`) : `cat-m-${catName}-${idx}`}
                   onClick={() => {
                     onSelectCategory(catName);
                     onClose();

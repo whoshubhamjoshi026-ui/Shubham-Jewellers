@@ -101,6 +101,24 @@ export const initialBanners: Banner[] = [
     categoryLink: 'Gold',
     ctaText: 'Explore Royal Jewels',
   },
+  {
+    id: 'b2',
+    title: 'Shubham Swarna Savings Plan',
+    subtitle: 'Pay 10 Monthly Installments & Get 1 Month FREE Gold Bonus',
+    discountBadge: 'Zero Making Charge Benefit',
+    image: 'https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&q=80&w=1200',
+    categoryLink: 'Gold',
+    ctaText: 'Join Swarna Plan',
+  },
+  {
+    id: 'b3',
+    title: 'VVS Solitaires & Polki Kundan',
+    subtitle: 'Certified Diamond Jewellery with Lifetime Exchange Guarantee',
+    discountBadge: 'Certified BIS Hallmark',
+    image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&q=80&w=1200',
+    categoryLink: 'Diamond',
+    ctaText: 'View Solitaires',
+  },
 ];
 
 export const initialProducts: Product[] = [

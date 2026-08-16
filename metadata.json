@@ -1,5 +1,5 @@
 {
-  "name": "Shub Jewellers",
+  "name": "Shubham Jewellers",
   "description": "Royal & Premium Jewellery E-Commerce app inspired by Tanishq, featuring live gold rates, OTP verification, product catalog with dynamic breakdown, Gold Scheme tracker, virtual try-on, WhatsApp inquiry, and real-time Admin Panel sync.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

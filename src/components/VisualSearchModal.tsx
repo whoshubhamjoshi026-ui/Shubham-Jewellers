@@ -164,22 +164,22 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
         }`}
       >
         {/* Top Header Banner */}
-        <div className="bg-gradient-to-r from-[#4A0E17] via-[#6B1423] to-[#4A0E17] p-4 text-[#D4AF37] flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/50">
-              <Camera className="w-5 h-5 text-[#D4AF37]" />
+        <div className="bg-gradient-to-r from-[#4A0E17] via-[#5A101C] to-[#3B0813] p-4 text-[#F3E5AB] flex items-center justify-between border-b border-[#D4AF37]/40 shadow-md">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/50 shadow-xs">
+              <Camera className="w-5 h-5 text-[#F3E5AB]" />
             </div>
             <div>
-              <h3 className="text-sm font-bold font-serif">Visual Jewelry Search</h3>
-              <p className="text-[11px] text-amber-200/90 font-light">
-                Snap or upload a photo to find matching designs
+              <h3 className="text-sm sm:text-base font-bold font-cinzel tracking-wide">AI Visual Jewellery Search</h3>
+              <p className="text-[11px] text-amber-200/80 font-normal">
+                Snap or upload a photo to find matching showroom designs
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full text-[#D4AF37] hover:text-white transition-colors"
+            className="p-1.5 rounded-full text-[#F3E5AB] hover:bg-white/10 active:scale-90 transition-all"
           >
             <X className="w-5 h-5" />
           </button>
@@ -214,10 +214,17 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
             </button>
           </div>
 
-          {/* File Input */}
+          {/* Hidden File Inputs: Plain for Gallery/Files and capture="environment" for Direct Camera */}
           <input
             type="file"
-            ref={fileInputRef}
+            ref={galleryInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            className="hidden"
+          />
+          <input
+            type="file"
+            ref={cameraInputRef}
             onChange={handleFileChange}
             accept="image/*"
             capture="environment"
@@ -226,18 +233,45 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
 
           {!selectedImage ? (
             searchTab === 'gallery' ? (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-amber-300 dark:border-zinc-700 rounded-2xl p-6 text-center cursor-pointer hover:bg-amber-50/50 dark:hover:bg-zinc-900 transition-all flex flex-col items-center justify-center group"
-              >
-                <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-zinc-800 text-[#4A0E17] dark:text-[#D4AF37] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <Camera className="w-7 h-7" />
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Option 1: Gallery / Device File Picker */}
+                  <button
+                    type="button"
+                    onClick={() => galleryInputRef.current?.click()}
+                    className="p-5 border-2 border-dashed border-amber-300 dark:border-zinc-700 rounded-2xl text-center cursor-pointer hover:bg-amber-50/70 dark:hover:bg-zinc-900 transition-all flex flex-col items-center justify-center group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-zinc-800 text-[#4A0E17] dark:text-[#D4AF37] flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform shadow-xs">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <p className="text-xs font-bold text-amber-950 dark:text-zinc-100">
+                      Choose from Gallery
+                    </p>
+                    <p className="text-[11px] text-amber-800/70 dark:text-zinc-400 mt-0.5">
+                      Upload from phone storage / album
+                    </p>
+                  </button>
+
+                  {/* Option 2: Live Camera Snapshot */}
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="p-5 border-2 border-dashed border-[#D4AF37] dark:border-amber-600/70 rounded-2xl text-center cursor-pointer bg-gradient-to-b from-amber-50/40 to-amber-100/30 dark:from-zinc-900/60 dark:to-zinc-900 hover:bg-amber-100/60 dark:hover:bg-zinc-800/80 transition-all flex flex-col items-center justify-center group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-[#4A0E17] text-[#D4AF37] flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform shadow-xs">
+                      <Camera className="w-6 h-6" />
+                    </div>
+                    <p className="text-xs font-bold text-amber-950 dark:text-zinc-100">
+                      Take Live Photo
+                    </p>
+                    <p className="text-[11px] text-amber-800/70 dark:text-zinc-400 mt-0.5">
+                      Direct camera snapshot
+                    </p>
+                  </button>
                 </div>
-                <p className="text-xs font-bold text-amber-950 dark:text-zinc-100">
-                  Click to Choose Photo from Gallery / Device
-                </p>
-                <p className="text-[11px] text-amber-800/70 dark:text-zinc-400 mt-1">
-                  Supports JPG, PNG, WEBP from your phone gallery or camera
+
+                <p className="text-center text-[11px] text-amber-800/70 dark:text-zinc-400">
+                  Supports JPG, PNG, WEBP jewelry photos (AI auto-matches category & stock)
                 </p>
               </div>
             ) : (

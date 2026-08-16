@@ -2,14 +2,293 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
   body {
-    color: #111111;
-    background-color: #FFFFFF;
+    color: #1A1615;
+    background-color: #FAF8F5; /* Warm luxury ivory / alabaster */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   .dark body {
-    color: #FFFFFF;
-    background-color: #0A0A0A;
+    color: #FAF7F2;
+    background-color: #0E0B0B; /* Deep obsidian luxury dark */
   }
+
+  h1, h2, h3, .font-serif-luxury {
+    font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Luxury Font Utility Classes */
+.font-cinzel {
+  font-family: 'Cinzel', serif;
+}
+
+.font-playfair {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-cormorant {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+.font-montserrat {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Luxury Gold & Shimmer Keyframe Animations */
+@keyframes goldShimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes luxuryPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.92;
+  }
+}
+
+@keyframes subtleFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1.5deg);
+  }
+}
+
+@keyframes subtleFloatSlow {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.02);
+  }
+}
+
+@keyframes diamondGlint {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.2) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(90deg);
+  }
+}
+
+@keyframes lightSweep {
+  0% {
+    transform: translateX(-150%) skewX(-25deg);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateX(250%) skewX(-25deg);
+    opacity: 0;
+  }
+}
+
+@keyframes goldHaloSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes goldHaloReverse {
+  0% {
+    transform: rotate(360deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes sparkleSpin {
+  0% {
+    transform: rotate(0deg) scale(0.9);
+    opacity: 0.8;
+  }
+  50% {
+    transform: rotate(180deg) scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(360deg) scale(0.9);
+    opacity: 0.8;
+  }
+}
+
+.animate-gold-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(212, 175, 55, 0) 0%,
+    rgba(255, 235, 160, 0.45) 50%,
+    rgba(212, 175, 55, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: goldShimmer 3.5s infinite linear;
+}
+
+.animate-sparkle {
+  animation: sparkleSpin 4s ease-in-out infinite;
+}
+
+.animate-diamond-glint {
+  animation: diamondGlint 3s ease-in-out infinite;
+}
+
+.animate-jewel-float {
+  animation: subtleFloat 4s ease-in-out infinite;
+}
+
+.animate-jewel-float-slow {
+  animation: subtleFloatSlow 6s ease-in-out infinite;
+}
+
+.animate-gold-halo {
+  animation: goldHaloSpin 12s linear infinite;
+}
+
+.animate-gold-halo-rev {
+  animation: goldHaloReverse 9s linear infinite;
+}
+
+.jewel-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.jewel-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 45%,
+    rgba(255, 240, 180, 0.65) 50%,
+    rgba(255, 255, 255, 0.35) 55%,
+    transparent 100%
+  );
+  transform: translateX(-150%) skewX(-25deg);
+  pointer-events: none;
+}
+
+.group:hover .jewel-sweep::after {
+  animation: lightSweep 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(240, 236, 228, 0.6) 25%,
+    rgba(255, 250, 240, 0.95) 37%,
+    rgba(240, 236, 228, 0.6) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeletonShimmer 1.8s ease infinite;
+}
+
+.dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(28, 24, 24, 0.8) 25%,
+    rgba(45, 38, 38, 0.95) 37%,
+    rgba(28, 24, 24, 0.8) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeletonShimmer 1.8s ease infinite;
+}
+
+/* Luxury Gradients */
+.bg-gold-metallic {
+  background: linear-gradient(135deg, #ECC86A 0%, #D4AF37 40%, #B8860B 80%, #996515 100%);
+}
+
+.bg-gold-soft {
+  background: linear-gradient(135deg, #FBF6E9 0%, #F5ECCB 100%);
+}
+
+.bg-maroon-royal {
+  background: linear-gradient(135deg, #4A0E17 0%, #350810 50%, #200408 100%);
+}
+
+.text-gold-gradient {
+  background: linear-gradient(135deg, #F5D77F 0%, #D4AF37 45%, #C59A27 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Elevation & Shadows */
+.shadow-luxury {
+  box-shadow: 0 10px 30px -10px rgba(53, 8, 16, 0.08), 0 4px 12px -4px rgba(212, 175, 55, 0.06);
+}
+
+.shadow-luxury-hover {
+  box-shadow: 0 20px 40px -12px rgba(53, 8, 16, 0.16), 0 8px 20px -6px rgba(212, 175, 55, 0.18);
+}
+
+.shadow-gold-glow {
+  box-shadow: 0 0 24px -4px rgba(212, 175, 55, 0.35);
+}
+
+.dark .shadow-luxury {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 2px 8px 0 rgba(212, 175, 55, 0.08);
+}
+
+.dark .shadow-luxury-hover {
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.8), 0 0 20px 2px rgba(212, 175, 55, 0.2);
+}
+
+/* Luxury Divider with Diamond Center */
+.luxury-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #D4AF37;
+}
+.luxury-divider::before,
+.luxury-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.35);
+}
+.luxury-divider:not(:empty)::before {
+  margin-right: 1.25em;
+}
+.luxury-divider:not(:empty)::after {
+  margin-left: 1.25em;
 }
 
 @layer utilities {
@@ -19,8 +298,8 @@
   }
   /* Hide scrollbar for IE, Edge and Firefox */
   .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
 

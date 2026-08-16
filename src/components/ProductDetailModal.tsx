@@ -113,12 +113,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 sm:p-8">
           {/* Left Column: Gallery & Zoom Viewer */}
           <div className="flex flex-col space-y-4">
             <div
-              className={`relative aspect-square rounded-2xl overflow-hidden border cursor-zoom-in ${
-                darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-amber-50 border-amber-200'
+              className={`relative aspect-square rounded-2xl overflow-hidden border cursor-zoom-in group shadow-luxury jewel-sweep ${
+                darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200/80'
               }`}
               onClick={() => setZoom(!zoom)}
             >
@@ -126,13 +126,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 src={selectedImg}
                 alt={product.title}
                 referrerPolicy="no-referrer"
-                className={`w-full h-full object-cover transition-transform duration-500 ${
-                  zoom ? 'scale-150' : 'scale-100'
+                className={`w-full h-full object-cover transition-transform duration-500 ease-out ${
+                  zoom ? 'scale-150' : 'scale-100 group-hover:scale-108'
                 }`}
               />
 
-              <div className="absolute top-3 left-3 bg-[#4A0E17] text-[#D4AF37] text-xs font-bold px-3 py-1 rounded-md shadow border border-[#D4AF37]/40">
-                {product.purity} BIS Hallmarked
+              {/* Dynamic Sparkle in Corner */}
+              <div className="absolute bottom-3 right-3 pointer-events-none">
+                <Sparkles className="w-5 h-5 text-[#FFE58F] animate-diamond-glint drop-shadow-[0_0_10px_#D4AF37]" />
+              </div>
+
+              <div className="absolute top-3 left-3 bg-gradient-to-r from-[#4A0E17] to-[#2B050D] text-[#F3E5AB] text-[11px] font-bold font-cinzel px-3 py-1 rounded-full shadow-md border border-[#D4AF37]/50 tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-[#D4AF37] animate-spin" />
+                <span>{product.purity} BIS Hallmarked</span>
               </div>
             </div>
 
@@ -143,10 +149,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <button
                     key={i}
                     onClick={() => setSelectedImg(imgUrl)}
-                    className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden border-2 transition-all ${
+                    className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden border-2 transition-all duration-300 ${
                       selectedImg === imgUrl
-                        ? 'border-[#D4AF37] scale-105 shadow-md'
-                        : 'border-transparent opacity-70 hover:opacity-100'
+                        ? 'border-[#D4AF37] scale-105 shadow-md ring-2 ring-[#D4AF37]/30'
+                        : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
                   >
                     <img
@@ -200,18 +206,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
 
             {/* Trust Assurances */}
-            <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-semibold pt-2 border-t border-amber-200/50 dark:border-zinc-800">
-              <div className={`flex flex-col items-center p-2 rounded-xl ${darkMode ? 'bg-zinc-800/80 text-white' : 'bg-amber-100/70 text-black'}`}>
+            <div className="grid grid-cols-3 gap-2.5 text-center text-[10px] font-semibold pt-2 border-t border-amber-200/50 dark:border-zinc-800">
+              <div className={`flex flex-col items-center p-2.5 rounded-xl border shadow-xs ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-200' : 'bg-white border-amber-200/70 text-amber-950'}`}>
                 <Award className="w-4 h-4 text-[#D4AF37] mb-1" />
-                <span>100% Certified Gold</span>
+                <span className="font-montserrat">100% Certified</span>
               </div>
-              <div className={`flex flex-col items-center p-2 rounded-xl ${darkMode ? 'bg-zinc-800/80 text-white' : 'bg-amber-100/70 text-black'}`}>
+              <div className={`flex flex-col items-center p-2.5 rounded-xl border shadow-xs ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-200' : 'bg-white border-amber-200/70 text-amber-950'}`}>
                 <Truck className="w-4 h-4 text-[#D4AF37] mb-1" />
-                <span>Insured Free Express Delivery</span>
+                <span className="font-montserrat">Insured Delivery</span>
               </div>
-              <div className={`flex flex-col items-center p-2 rounded-xl ${darkMode ? 'bg-zinc-800/80 text-white' : 'bg-amber-100/70 text-black'}`}>
+              <div className={`flex flex-col items-center p-2.5 rounded-xl border shadow-xs ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-200' : 'bg-white border-amber-200/70 text-amber-950'}`}>
                 <RotateCcw className="w-4 h-4 text-[#D4AF37] mb-1" />
-                <span>15-Day Exchange & Lifetime Buyback</span>
+                <span className="font-montserrat">Lifetime Buyback</span>
               </div>
             </div>
           </div>
@@ -220,14 +226,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <div className="flex flex-col justify-between space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase tracking-wider font-bold text-[#D4AF37] bg-[#4A0E17] px-2.5 py-0.5 rounded">
+                <span className="text-[10px] uppercase tracking-wider font-bold text-[#F3E5AB] bg-gradient-to-r from-[#4A0E17] to-[#2B050D] px-3 py-1 rounded-full border border-[#D4AF37]/40 font-cinzel">
                   {product.category} • {product.collection}
                 </span>
                 <button
                   onClick={() => onToggleWishlist(product)}
-                  className={`p-2 rounded-full border transition-colors ${
+                  className={`p-2 rounded-full border transition-all active:scale-90 ${
                     isWishlisted
-                      ? 'bg-rose-600 text-white border-rose-600'
+                      ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                       : 'border-amber-300 dark:border-zinc-700 hover:bg-rose-50 dark:hover:bg-zinc-800'
                   }`}
                 >
@@ -235,7 +241,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </button>
               </div>
 
-              <h2 className={`text-xl font-bold font-serif leading-snug mb-2 ${darkMode ? 'text-white' : 'text-black'}`}>
+              <h2 className={`text-xl sm:text-2xl font-bold font-playfair leading-snug mb-2 ${darkMode ? 'text-zinc-100' : 'text-zinc-900'}`}>
                 {product.title}
               </h2>
 
@@ -269,7 +275,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 ) : (
                   <div>
-                    <p className={`text-xs font-medium leading-relaxed ${darkMode ? 'text-zinc-200' : 'text-black'}`}>
+                    <p className={`text-xs font-normal leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
                       {product.description}
                     </p>
                     {isAdmin && (
@@ -288,47 +294,47 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               {/* Technical Specifications */}
-              <div className={`grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs mb-4 ${
-                darkMode ? 'bg-zinc-800/80 border-zinc-700' : 'bg-amber-100/70 border-amber-300/80'
+              <div className={`grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs mb-4 shadow-xs ${
+                darkMode ? 'bg-[#181315] border-zinc-800' : 'bg-white border-amber-200/70'
               }`}>
                 <div>
-                  <span className={`font-bold text-[11px] block ${darkMode ? 'text-zinc-300' : 'text-zinc-800'}`}>
+                  <span className={`font-medium text-[10px] uppercase tracking-wider block ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
                     Gross Weight
                   </span>
-                  <strong className={`text-sm font-extrabold ${darkMode ? 'text-white' : 'text-black'}`}>{product.weightGrams} Grams</strong>
+                  <strong className={`text-sm font-bold font-mono ${darkMode ? 'text-zinc-100' : 'text-zinc-900'}`}>{product.weightGrams} Grams</strong>
                 </div>
                 <div>
-                  <span className={`font-bold text-[11px] block ${darkMode ? 'text-zinc-300' : 'text-zinc-800'}`}>
+                  <span className={`font-medium text-[10px] uppercase tracking-wider block ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
                     Gold Purity
                   </span>
-                  <strong className={`text-sm font-extrabold ${darkMode ? 'text-white' : 'text-black'}`}>{product.purity} Hallmark</strong>
+                  <strong className={`text-sm font-bold font-cinzel ${darkMode ? 'text-[#F3E5AB]' : 'text-[#4A0E17]'}`}>{product.purity} Hallmark</strong>
                 </div>
                 <div>
-                  <span className={`font-bold text-[11px] block ${darkMode ? 'text-zinc-300' : 'text-zinc-800'}`}>
-                    Gender/Style
+                  <span className={`font-medium text-[10px] uppercase tracking-wider block ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                    Gender / Style
                   </span>
-                  <strong className={`font-extrabold ${darkMode ? 'text-white' : 'text-black'}`}>{product.gender}</strong>
+                  <strong className={`font-semibold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>{product.gender}</strong>
                 </div>
                 <div>
-                  <span className={`font-bold text-[11px] block ${darkMode ? 'text-zinc-300' : 'text-zinc-800'}`}>
+                  <span className={`font-medium text-[10px] uppercase tracking-wider block ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
                     Live Rate Applied
                   </span>
-                  <strong className={`font-extrabold ${darkMode ? 'text-white' : 'text-black'}`}>{formatINR(priceInfo.ratePerGram)}/g</strong>
+                  <strong className={`font-bold font-mono ${darkMode ? 'text-zinc-100' : 'text-zinc-900'}`}>{formatINR(priceInfo.ratePerGram)}/g</strong>
                 </div>
               </div>
 
               {/* Dynamic Price Breakdown Accordion */}
-              <div className="rounded-2xl border border-amber-300 dark:border-zinc-700 overflow-hidden mb-4 shadow-xs">
+              <div className="rounded-2xl border border-[#D4AF37]/40 overflow-hidden mb-4 shadow-luxury">
                 <button
                   onClick={() => setShowPriceBreakdown(!showPriceBreakdown)}
-                  className="w-full p-3 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs flex items-center justify-between"
+                  className="w-full p-3.5 bg-gradient-to-r from-[#4A0E17] via-[#5A101C] to-[#3B0813] text-[#F3E5AB] font-bold text-xs flex items-center justify-between transition-colors"
                 >
-                  <span className="flex items-center space-x-1.5">
+                  <span className="flex items-center space-x-1.5 font-cinzel tracking-wider">
                     <Sparkles className="w-4 h-4 text-[#D4AF37]" />
                     <span>Transparent Price Breakdown</span>
                   </span>
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm font-extrabold text-[#D4AF37]">{formatINR(priceInfo.totalPrice)}</span>
+                    <span className="text-sm font-bold font-sans text-[#F3E5AB]">{formatINR(priceInfo.totalPrice)}</span>
                     {showPriceBreakdown ? (
                       <ChevronUp className="w-4 h-4 text-[#D4AF37]" />
                     ) : (
@@ -338,34 +344,34 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </button>
 
                 {showPriceBreakdown && (
-                  <div className={`p-3 text-xs space-y-2 border-t ${darkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-amber-200 text-black'}`}>
+                  <div className={`p-4 text-xs space-y-2.5 border-t ${darkMode ? 'bg-zinc-900/90 border-zinc-800 text-zinc-100' : 'bg-white border-amber-200/80 text-zinc-900'}`}>
                     <div className="flex justify-between">
-                      <span className={`font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-800'}`}>
+                      <span className={`font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
                         Gold Metal Cost ({product.weightGrams}g × {formatINR(priceInfo.ratePerGram)})
                       </span>
-                      <span className={`font-extrabold ${darkMode ? 'text-amber-200' : 'text-black'}`}>{formatINR(priceInfo.metalCost)}</span>
+                      <span className="font-bold font-mono">{formatINR(priceInfo.metalCost)}</span>
                     </div>
 
                     <div className="flex justify-between">
-                      <span className={`font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-800'}`}>
+                      <span className={`font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>
                         Making Charges ({priceInfo.makingChargePercent}% on Gold)
                       </span>
-                      <span className={`font-extrabold ${darkMode ? 'text-amber-200' : 'text-black'}`}>{formatINR(priceInfo.makingCharges)}</span>
+                      <span className="font-bold font-mono">{formatINR(priceInfo.makingCharges)}</span>
                     </div>
 
-                    <div className="flex justify-between pt-1 border-t border-dashed border-amber-300 dark:border-zinc-700">
-                      <span className={`font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-800'}`}>Subtotal</span>
-                      <span className={`font-extrabold ${darkMode ? 'text-amber-200' : 'text-black'}`}>{formatINR(priceInfo.subtotal)}</span>
+                    <div className="flex justify-between pt-1.5 border-t border-dashed border-amber-300/60 dark:border-zinc-700">
+                      <span className={`font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>Subtotal</span>
+                      <span className="font-bold font-mono">{formatINR(priceInfo.subtotal)}</span>
                     </div>
 
                     <div className="flex justify-between">
-                      <span className={`font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-800'}`}>3% Indian GST</span>
-                      <span className={`font-extrabold ${darkMode ? 'text-amber-200' : 'text-black'}`}>{formatINR(priceInfo.gstAmount)}</span>
+                      <span className={`font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>3% Indian GST</span>
+                      <span className="font-bold font-mono">{formatINR(priceInfo.gstAmount)}</span>
                     </div>
 
-                    <div className="flex justify-between pt-2 border-t border-amber-300 dark:border-zinc-700 font-extrabold text-sm text-[#4A0E17] dark:text-[#D4AF37]">
-                      <span>Total Net Price</span>
-                      <span>{formatINR(priceInfo.totalPrice)}</span>
+                    <div className="flex justify-between pt-2.5 border-t border-[#D4AF37]/40 font-bold text-sm text-[#4A0E17] dark:text-[#F3E5AB]">
+                      <span className="font-cinzel tracking-wider">Total Net Price</span>
+                      <span className="font-sans font-extrabold text-base">{formatINR(priceInfo.totalPrice)}</span>
                     </div>
                   </div>
                 )}
@@ -373,21 +379,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
 
             {/* CTAs */}
-            <div className="space-y-2 pt-2">
+            <div className="space-y-2.5 pt-2">
               <button
                 onClick={() => {
                   onAddToCart(product);
                   onClose();
                 }}
-                className="w-full py-3 bg-[#4A0E17] text-[#D4AF37] font-bold text-sm rounded-xl shadow-lg hover:bg-[#6B1423] transition-colors flex items-center justify-center space-x-2 border border-[#D4AF37]/30"
+                className="w-full py-3.5 bg-gradient-to-r from-[#4A0E17] via-[#5A101C] to-[#3B0813] text-[#F3E5AB] font-bold text-sm rounded-2xl shadow-luxury hover:brightness-110 active:scale-98 transition-all flex items-center justify-center space-x-2 border border-[#D4AF37]/50"
               >
-                <ShoppingBag className="w-4 h-4" />
-                <span>Add to Shopping Bag</span>
+                <ShoppingBag className="w-4 h-4 text-[#D4AF37]" />
+                <span className="font-cinzel tracking-wider">Add to Shopping Bag</span>
               </button>
 
               <button
                 onClick={() => onWhatsAppInquiry(product)}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center justify-center space-x-2"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-md active:scale-98 transition-all flex items-center justify-center space-x-2"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>Inquire on Official WhatsApp ({displayPhone})</span>

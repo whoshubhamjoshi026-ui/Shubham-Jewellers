@@ -29,23 +29,23 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({
         }`}
       >
         {/* Banner */}
-        <div className="bg-gradient-to-r from-[#4A0E17] via-[#6B1423] to-[#4A0E17] p-5 text-[#D4AF37] relative flex items-center space-x-3">
+        <div className="bg-gradient-to-r from-[#4A0E17] via-[#5A101C] to-[#3B0813] p-5 text-[#F3E5AB] relative flex items-center space-x-3.5 border-b border-[#D4AF37]/40 shadow-md">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 rounded-full bg-white/10 hover:bg-white/20 text-[#D4AF37] transition-colors"
+            className="absolute top-4 right-4 p-1.5 rounded-full text-[#F3E5AB] hover:bg-white/10 active:scale-90 transition-all"
           >
             <X className="w-4 h-4" />
           </button>
 
-          <div className="w-11 h-11 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center shrink-0">
-            <Sparkles className="w-6 h-6 text-[#D4AF37] animate-bounce" />
+          <div className="w-11 h-11 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/50 flex items-center justify-center shrink-0 shadow-xs">
+            <Sparkles className="w-5 h-5 text-[#F3E5AB] animate-bounce" />
           </div>
 
           <div>
-            <span className="text-[10px] font-extrabold tracking-widest uppercase bg-[#D4AF37] text-[#4A0E17] px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold tracking-widest uppercase bg-gradient-to-r from-[#ECC86A] via-[#D4AF37] to-[#B8860B] text-[#2B050D] px-2.5 py-0.5 rounded-full font-cinzel">
               New Update Available
             </span>
-            <h3 className="text-base font-extrabold font-serif tracking-tight mt-1 text-[#D4AF37]">
+            <h3 className="text-base font-bold font-cinzel tracking-wide mt-1 text-[#F3E5AB]">
               Shubham Jewellers v{versionInfo.latestVersion}
             </h3>
           </div>
