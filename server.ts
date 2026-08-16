@@ -174,7 +174,14 @@ async function startServer() {
   function getEmailTransporter(user: string, pass: string): nodemailer.Transporter {
     if (!cachedTransporter) {
       cachedTransporter = nodemailer.createTransport({
-        service: 'gmail',
+        // ✅ FIXED: Use explicit host/port instead of the 'gmail' service shorthand,
+        // and force IPv4 (`family: 4`). Render's outbound network could not route
+        // Gmail's IPv6 SMTP address (2404:6800:...), causing every attempt to fail
+        // with ENETUNREACH before timing out. Forcing IPv4 avoids that dead route.
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        family: 4,
         pool: true,
         maxConnections: 5,
         maxMessages: 100,
