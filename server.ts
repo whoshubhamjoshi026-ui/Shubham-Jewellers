@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import dns from 'dns';
 import nodemailer from 'nodemailer';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
@@ -770,6 +771,34 @@ async function startServer() {
 
       if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
         res.status(400).json({ success: false, message: 'Invalid email address format.' });
+        return;
+      }
+
+      // ✅ NEW: "No email found" check — verify the email's domain actually has
+      // mail servers configured (MX records) before sending an OTP. This catches
+      // typos and fake/non-existent domains (e.g. "user@gmial.com" or made-up
+      // domains) so the person sees a clear error instead of a silently-issued
+      // OTP that could never be delivered. Note: this checks the DOMAIN can
+      // receive mail, not that the exact mailbox exists — full mailbox-level
+      // verification would need SMTP probing, which most providers block/throttle
+      // and is unreliable, so a domain-level check is the practical standard here.
+      const domain = cleanEmail.split('@')[1] || '';
+      const domainHasMailServer = await new Promise<boolean>((resolve) => {
+        dns.resolveMx(domain, (err, addresses) => {
+          resolve(!err && Array.isArray(addresses) && addresses.length > 0);
+        });
+      });
+
+      if (!domainHasMailServer) {
+        // Use 200 (not 404/400) so the frontend's safeFetchJson helper — which
+        // treats any non-2xx response as a network failure and discards the
+        // body — actually receives this specific error instead of silently
+        // falling back to a demo OTP.
+        res.status(200).json({
+          success: false,
+          code: 'EMAIL_NOT_FOUND',
+          message: 'No email found for this address. Please check for typos and try again.',
+        });
         return;
       }
 

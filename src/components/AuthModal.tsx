@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { Mail, Lock, CheckCircle2, MapPin, User, ArrowRight, ShieldCheck, Sparkles, KeyRound } from 'lucide-react';
 import { safeFetchJson } from '../utils/safeFetch';
@@ -9,6 +9,7 @@ interface AuthModalProps {
   onClose: () => void;
   user: UserProfile;
   setUser: (user: UserProfile) => void;
+  onLogout?: () => void;
   mandatory?: boolean;
 }
 
@@ -17,6 +18,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   user,
   setUser,
+  onLogout,
   mandatory = false,
 }) => {
   const [step, setStep] = useState<'email' | 'otp' | 'profile'>(user.isLoggedIn ? 'profile' : 'email');
@@ -35,6 +37,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [state, setState] = useState(user.address?.state || '');
   const [pincode, setPincode] = useState(user.address?.pincode || '');
 
+  // ✅ FIXED: This modal never unmounts (App.tsx always renders it, only
+  // toggling `isOpen`), so `step`'s useState initializer only ran once, ever.
+  // Every time the modal re-opened later, `step` kept whatever value it had
+  // from the last time — which could disagree with the current `user.isLoggedIn`
+  // status (e.g. still 'profile' from a prior session while the user is now
+  // logged out, or vice versa). Since the profile step also requires
+  // `user.isLoggedIn` to render, a mismatch meant NONE of the three steps
+  // matched and the modal body rendered completely blank. Re-sync `step`
+  // every time the modal opens so it always reflects the real login state.
+  useEffect(() => {
+    if (isOpen) {
+      setStep(user.isLoggedIn ? 'profile' : 'email');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, user.isLoggedIn]);
+
   if (!isOpen) return null;
 
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -51,7 +69,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
 
     try {
-      const data = await safeFetchJson<{ success?: boolean; message?: string; otp?: string; provider?: string }>('/api/auth/send-otp', {
+      const data = await safeFetchJson<{ success?: boolean; message?: string; otp?: string; provider?: string; code?: string }>('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail }),
@@ -64,6 +82,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
         setSuccessMsg(`Verification code dispatched for ${cleanEmail}`);
         setStep('otp');
+      } else if (data?.code === 'EMAIL_NOT_FOUND') {
+        // ✅ NEW: "No email found" popup — the backend confirmed this email's
+        // domain can't receive mail, so stop here instead of silently falling
+        // back to a demo OTP that would let an unreachable/fake email through.
+        setErrorMsg(data.message || 'No email found for this address. Please check for typos and try again.');
       } else {
         // Even on network hitch, supply local fallback code
         setReceivedOtp('7788');
@@ -148,6 +171,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       address: { street: '', city: '', state: '', pincode: '' },
       isLoggedIn: false,
     });
+    // ✅ FIXED: Clear this device's cart & wishlist state on logout so the next
+    // person who logs in on this browser (or the same person before their own
+    // data restores) never sees a stale cart/wishlist left behind by whoever
+    // was logged in before. Each user's real cart/wishlist is safely stored
+    // server-side per email and gets restored fresh after their own login.
+    onLogout?.();
     setStep('email');
     setEmail('');
     setOtpInput('');
