@@ -179,11 +179,20 @@ export default function App() {
           if (data?.success && data.userData) {
             const ud = data.userData;
             if (ud.profile) setUser((prev) => ({ ...prev, ...ud.profile }));
-            if (ud.cart && ud.cart.length > 0) setCart(ud.cart);
-            if (ud.wishlistIds && ud.wishlistIds.length > 0) {
-              const restoredWish = products.filter((p) => ud.wishlistIds.includes(p.id));
-              if (restoredWish.length > 0) setWishlist(restoredWish);
-            }
+            // ✅ FIXED: Always set cart/wishlist from this user's saved data —
+            // including resetting to empty when they have none saved. Previously
+            // this only ran when the arrays were non-empty, so a user with an
+            // empty saved cart/wishlist would keep seeing whatever was left over
+            // in memory from the previously logged-in user on this device.
+            setCart(ud.cart && ud.cart.length > 0 ? ud.cart : []);
+            const restoredWish = ud.wishlistIds && ud.wishlistIds.length > 0
+              ? products.filter((p) => ud.wishlistIds.includes(p.id))
+              : [];
+            setWishlist(restoredWish);
+          } else {
+            // No saved data for this user at all — start clean.
+            setCart([]);
+            setWishlist([]);
           }
         })
         .catch(() => {});
@@ -800,6 +809,12 @@ export default function App() {
         onClose={() => setAuthModalOpen(false)}
         user={user}
         setUser={setUser}
+        onLogout={() => {
+          // ✅ FIXED: Clear cart & wishlist on logout so nothing lingers on
+          // this device for the next login (own or someone else's).
+          setCart([]);
+          setWishlist([]);
+        }}
         mandatory={false}
       />
 
@@ -997,6 +1012,11 @@ export default function App() {
             address: { street: '', city: '', state: '', pincode: '' },
             isLoggedIn: false,
           });
+          // ✅ FIXED: Clear cart & wishlist here too — this is the second
+          // logout entry point (hamburger side drawer), which had the same
+          // stale-data bug as the AuthModal logout button.
+          setCart([]);
+          setWishlist([]);
         }}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
