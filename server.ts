@@ -784,13 +784,30 @@ async function startServer() {
 
       console.log(`[Email OTP Success] Verification code ${generatedOtp} dispatched to ${cleanEmail} via ${emailResult.provider}`);
 
-      res.json({
+      // ✅ FIXED: Only include the OTP in the API response when we genuinely
+      // could NOT deliver it by email (emailResult.devOtp is only set by the
+      // fallback path in sendOtpViaEmail). When real delivery via Gmail SMTP
+      // or Resend succeeds, the OTP must stay server-side only — otherwise
+      // the frontend was showing it on-screen every single time, even on a
+      // successful send, defeating the purpose of email verification.
+      const responsePayload: {
+        success: true;
+        email: string;
+        provider: string;
+        message: string;
+        otp?: string;
+      } = {
         success: true,
         email: cleanEmail,
-        otp: generatedOtp,
         provider: emailResult.provider,
         message: `Verification code sent via Email to ${cleanEmail}`,
-      });
+      };
+
+      if (emailResult.devOtp) {
+        responsePayload.otp = emailResult.devOtp;
+      }
+
+      res.json(responsePayload);
     } catch (error: any) {
       console.error('[Email OTP API Error]:', error);
       res.status(500).json({
