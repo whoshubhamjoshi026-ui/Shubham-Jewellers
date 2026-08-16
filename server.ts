@@ -9,7 +9,17 @@ import { createServer as createViteServer } from 'vite';
 import { initialGoldRates, initialBanners, initialBottomBanner, initialCategoryItems, initialProducts, initialVersionInfo, initialCompanyInfo, initialDrawerConfig, initialFooterConfig } from './src/data/initialData.js';
 import { GoldRates, Banner, BottomBanner, CategoryItem, Product, AppVersionInfo, GoldScheme, CompanyInfo, UserSyncedData, DrawerConfig, FooterConfig } from './src/types.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Works in both ESM (local dev via tsx) and the CJS bundle esbuild produces for
+// production (`--format=cjs`). In CJS, __dirname/__filename are already provided
+// natively by the module wrapper, so import.meta.url is never evaluated there —
+// which matters because import.meta.url is undefined once esbuild bundles to CJS.
+declare const __dirname: string | undefined;
+function resolveDirname(): string {
+  if (typeof __dirname !== 'undefined') return __dirname;
+  return path.dirname(fileURLToPath(import.meta.url));
+}
+
+const resolvedDirname = resolveDirname();
 
 async function startServer() {
   const app = express();
@@ -967,7 +977,7 @@ async function startServer() {
   } else {
     console.log('📦 Running in PRODUCTION mode - serving static files');
     // ✅ FIXED: Correct path for production build
-    const distPath = path.join(__dirname, '../dist');
+    const distPath = path.join(resolvedDirname, '../dist');
     
     if (!fs.existsSync(distPath)) {
       console.error(`❌ ERROR: dist folder not found at ${distPath}`);
