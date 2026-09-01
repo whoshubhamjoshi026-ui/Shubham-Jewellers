@@ -489,28 +489,50 @@ export default function App() {
   };
 
   const handleAddBanner = async (banner: Banner) => {
-    setBanners((prev) => [...prev, banner]);
     try {
-      const data = await safeFetchJson<{ banners?: Banner[] }>('/api/admin/banners', {
+      const data = await safeFetchJson<{ success?: boolean; banners?: Banner[]; message?: string }>('/api/admin/banners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(banner),
       });
-      if (data?.banners) setBanners(data.banners);
-      addToast('Banner Published', 'Advertisement banner saved to database.');
-    } catch (e) {
-      addToast('Banner Published', 'Ad banner added to active session.', 'info');
+      if (data?.success && Array.isArray(data.banners)) {
+        setBanners(data.banners);
+        addToast('Banner Published', 'Advertisement banner saved to database and published live.');
+        return;
+      } else if (Array.isArray(data?.banners)) {
+        setBanners(data.banners);
+        addToast('Banner Published', 'Advertisement banner saved to database.');
+        return;
+      }
+      throw new Error(data?.message || 'Backend rejected banner save request');
+    } catch (e: any) {
+      console.error('[Add Banner Error]', e);
+      // Fallback local update if network is unavailable
+      setBanners((prev) => [...prev, banner]);
+      addToast('Banner Save Warning', 'Could not sync banner to server database. Kept in active session only.', 'error');
     }
   };
 
   const handleDeleteBanner = async (id: string) => {
-    setBanners((prev) => prev.filter((b) => b.id !== id));
     try {
-      const data = await safeFetchJson<{ banners?: Banner[] }>(`/api/admin/banners/${id}`, { method: 'DELETE' });
-      if (data?.banners) setBanners(data.banners);
-      addToast('Banner Removed', 'Advertisement banner deleted from database.');
-    } catch (e) {
-      addToast('Banner Removed', 'Banner removed from session.', 'info');
+      const data = await safeFetchJson<{ success?: boolean; banners?: Banner[]; message?: string }>(`/api/admin/banners/${id}`, {
+        method: 'DELETE',
+      });
+      if (data?.success && Array.isArray(data.banners)) {
+        setBanners(data.banners);
+        addToast('Banner Removed', 'Advertisement banner deleted from database.');
+        return;
+      } else if (Array.isArray(data?.banners)) {
+        setBanners(data.banners);
+        addToast('Banner Removed', 'Advertisement banner deleted.');
+        return;
+      }
+      throw new Error(data?.message || 'Backend rejected banner delete request');
+    } catch (e: any) {
+      console.error('[Delete Banner Error]', e);
+      // Fallback local update if network is unavailable
+      setBanners((prev) => prev.filter((b) => b.id !== id));
+      addToast('Banner Delete Warning', 'Could not delete banner from server database. Removed from active session only.', 'error');
     }
   };
 

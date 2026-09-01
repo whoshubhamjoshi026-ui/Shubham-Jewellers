@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GoldRates, Product, Banner, BottomBanner, CategoryItem, AppVersionInfo, CompanyInfo, DrawerConfig, FooterConfig, TrustBadge } from '../types';
-import { X, Settings, TrendingUp, Plus, Trash2, Edit, Radio, Sparkles, CheckCircle2, AlertCircle, Building2, ArrowUp, ArrowDown, Layers, Menu, Footprints, Layout } from 'lucide-react';
+import { X, Settings, TrendingUp, Plus, Trash2, Edit, Radio, Sparkles, CheckCircle2, AlertCircle, Building2, ArrowUp, ArrowDown, Layers, Menu, Footprints, Layout, Loader2 } from 'lucide-react';
 import { ImageInputSelector } from './ImageInputSelector';
 
 interface AdminPanelModalProps {
@@ -189,6 +189,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     }
   }, [isOpen]);
 
+  // Populated state and saving indicator
+  const [isSaving, setIsSaving] = useState<string | null>(null);
+
   // Version Broadcast Form
   const [versionNum, setVersionNum] = useState('2.1.0');
   const [versionMsg, setVersionMsg] = useState('A new version of Shubham Jewellers is available with live rate alerts and zero data loss account sync!');
@@ -210,6 +213,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       return;
     }
 
+    setIsSaving('company');
     onUpdateCompanyInfo({
       address: cAddress,
       phone: cPhone,
@@ -218,14 +222,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       bisHallmarkReg: cHallmark,
       aboutText: cAboutText,
     });
-    setInfoMsg('Company details & WhatsApp contact updated live across the app!');
-    setTimeout(() => setInfoMsg(''), 4000);
+    setTimeout(() => {
+      setIsSaving(null);
+      setInfoMsg('Company details & WhatsApp contact updated live across the app!');
+      setTimeout(() => setInfoMsg(''), 4000);
+    }, 400);
   };
 
   const handleSaveBottomBanner = (e: React.FormEvent) => {
     e.preventDefault();
     if (!bbTitle || !bbImage) return;
 
+    setIsSaving('bottomBanner');
     onUpdateBottomBanner({
       id: bottomBanner?.id || 'bb-main',
       title: bbTitle,
@@ -235,13 +243,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       ctaText: bbCta || 'Explore Collection',
     });
 
-    setBbMsg('Bottom main banner updated and published live!');
-    setTimeout(() => setBbMsg(''), 4000);
+    setTimeout(() => {
+      setIsSaving(null);
+      setBbMsg('Bottom main banner updated and published live!');
+      setTimeout(() => setBbMsg(''), 4000);
+    }, 400);
   };
 
   const handleSaveDrawerConfig = (e: React.FormEvent) => {
     e.preventDefault();
     if (onUpdateDrawerConfig) {
+      setIsSaving('drawer');
       onUpdateDrawerConfig({
         headerTitle: dhHeaderTitle,
         welcomeSubtitle: dhWelcomeSubtitle,
@@ -252,14 +264,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         shopForSectionTitle: dhShopForSectionTitle,
         footerTagline: dhFooterTagline,
       });
-      setDhMsg('Hamburger menu dashboard settings updated and published live!');
-      setTimeout(() => setDhMsg(''), 4000);
+      setTimeout(() => {
+        setIsSaving(null);
+        setDhMsg('Hamburger menu dashboard settings updated and published live!');
+        setTimeout(() => setDhMsg(''), 4000);
+      }, 400);
     }
   };
 
   const handleSaveFooterConfig = (e: React.FormEvent) => {
     e.preventDefault();
     if (onUpdateFooterConfig) {
+      setIsSaving('footer');
       onUpdateFooterConfig({
         trustBadges: ftTrustBadges,
         brandTitle: ftBrandTitle,
@@ -276,8 +292,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         schemeHighlightBox: ftSchemeHighlightBox,
         copyrightText: ftCopyrightText,
       });
-      setFtMsg('Footer configuration settings updated and published live!');
-      setTimeout(() => setFtMsg(''), 4000);
+      setTimeout(() => {
+        setIsSaving(null);
+        setFtMsg('Footer configuration settings updated and published live!');
+        setTimeout(() => setFtMsg(''), 4000);
+      }, 400);
     }
   };
 
@@ -321,6 +340,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     e.preventDefault();
     if (!newCatName.trim()) return;
 
+    setIsSaving('category');
     const currentList = getNormalizedCategories();
     const newItem: CategoryItem = {
       id: `cat-${Date.now()}`,
@@ -330,10 +350,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     };
 
     onUpdateCategories([...currentList, newItem]);
-    setCatMsg(`Category "${newCatName.trim()}" added successfully!`);
-    setNewCatName('');
-    setNewCatImage('');
-    setTimeout(() => setCatMsg(''), 3000);
+    setTimeout(() => {
+      setIsSaving(null);
+      setCatMsg(`Category "${newCatName.trim()}" added successfully!`);
+      setNewCatName('');
+      setNewCatImage('');
+      setTimeout(() => setCatMsg(''), 3000);
+    }, 400);
   };
 
   const handleStartEditCategory = (item: CategoryItem) => {
@@ -344,14 +367,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   const handleSaveEditCategory = (id: string) => {
     if (!editCatName.trim()) return;
+    setIsSaving(`category-edit-${id}`);
     const currentList = getNormalizedCategories();
     const updatedList = currentList.map((item) =>
       item.id === id ? { ...item, name: editCatName.trim(), image: editCatImage.trim() } : item
     );
     onUpdateCategories(updatedList);
-    setEditingCatId(null);
-    setCatMsg('Category updated successfully!');
-    setTimeout(() => setCatMsg(''), 3000);
+    setTimeout(() => {
+      setIsSaving(null);
+      setEditingCatId(null);
+      setCatMsg('Category updated successfully!');
+      setTimeout(() => setCatMsg(''), 3000);
+    }, 400);
   };
 
   const handleMoveCategory = (index: number, direction: 'up' | 'down') => {
@@ -383,14 +410,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   const handleSaveRates = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving('rates');
     onUpdateRates({
       gold24k: Number(gold24k),
       gold22k: Number(gold22k),
       gold18k: Number(gold18k),
       silver: Number(silver),
     });
-    setRateMsg('Live gold & silver rates updated & synced across active devices!');
-    setTimeout(() => setRateMsg(''), 4000);
+    setTimeout(() => {
+      setIsSaving(null);
+      setRateMsg('Live gold & silver rates updated & synced across active devices!');
+      setTimeout(() => setRateMsg(''), 4000);
+    }, 400);
   };
 
   const startEditProduct = (prod: Product) => {
@@ -409,6 +440,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving('product');
     const galleryUrls = pGallery
       ? pGallery.split(',').map((url) => url.trim()).filter(Boolean)
       : [pImage];
@@ -436,47 +468,58 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     }
 
     onAddProduct(productPayload);
-    setPSuccessMsg(editingProductId ? 'Product details updated successfully!' : 'New product added with gallery pictures to catalog!');
-    setEditingProductId(null);
-    setPTitle('');
-    setPWeight('12.5');
-    setPMaking('12');
-    setPGallery('');
-    setPDesc('Certified BIS Hallmarked handcrafted luxury gold ornament.');
-    setPInStock(true);
-    setTimeout(() => setPSuccessMsg(''), 4000);
+    setTimeout(() => {
+      setIsSaving(null);
+      setPSuccessMsg(editingProductId ? 'Product details updated successfully!' : 'New product added with gallery pictures to catalog!');
+      setEditingProductId(null);
+      setPTitle('');
+      setPWeight('12.5');
+      setPMaking('12');
+      setPGallery('');
+      setPDesc('Certified BIS Hallmarked handcrafted luxury gold ornament.');
+      setPInStock(true);
+      setTimeout(() => setPSuccessMsg(''), 4000);
+    }, 400);
   };
 
   const handleSaveBanner = (e: React.FormEvent) => {
     e.preventDefault();
     if (!bTitle || !bImage) return;
 
+    setIsSaving('banner');
     onAddBanner({
       id: `b-${Date.now()}`,
-      title: bTitle,
-      subtitle: bSubtitle || 'Exclusive Festival Offer',
-      image: bImage,
-      imageUrl: bImage,
-      discountBadge: bTag || 'SPECIAL OFFER',
-      discountTag: bTag || 'SPECIAL OFFER',
-      ctaText: bCta || 'Explore Collection',
+      title: bTitle.trim(),
+      subtitle: bSubtitle.trim() || 'Exclusive Festival Offer',
+      image: bImage.trim(),
+      imageUrl: bImage.trim(),
+      discountBadge: bTag.trim() || 'SPECIAL OFFER',
+      discountTag: bTag.trim() || 'SPECIAL OFFER',
+      ctaText: bCta.trim() || 'Explore Collection',
       categoryLink: 'Gold',
     });
 
-    setBSuccessMsg('New advertisement banner published!');
-    setBTitle('');
-    setBSubtitle('');
-    setBImage('');
-    setBTag('');
-    setBCta('');
-    setTimeout(() => setBSuccessMsg(''), 4000);
+    setTimeout(() => {
+      setIsSaving(null);
+      setBSuccessMsg('New advertisement banner published!');
+      setBTitle('');
+      setBSubtitle('');
+      setBImage('');
+      setBTag('');
+      setBCta('');
+      setTimeout(() => setBSuccessMsg(''), 4000);
+    }, 400);
   };
 
   const handleBroadcast = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving('broadcast');
     onBroadcastVersionUpdate(versionNum, versionMsg);
-    setVersionSuccess(`Version ${versionNum} update broadcasted to all live user devices!`);
-    setTimeout(() => setVersionSuccess(''), 5000);
+    setTimeout(() => {
+      setIsSaving(null);
+      setVersionSuccess(`Version ${versionNum} update broadcasted to all live user devices!`);
+      setTimeout(() => setVersionSuccess(''), 5000);
+    }, 400);
   };
 
   return (
@@ -689,9 +732,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-[#D4AF37] text-[#4A0E17] font-bold text-xs rounded-xl hover:bg-amber-400 shadow"
+                disabled={isSaving === 'rates'}
+                className="w-full py-2.5 bg-[#D4AF37] text-[#4A0E17] font-bold text-xs rounded-xl hover:bg-amber-400 shadow disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
               >
-                Broadcast & Update Live Rates Now
+                {isSaving === 'rates' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Broadcasting & Syncing Rates...</span>
+                  </>
+                ) : (
+                  <span>Broadcast & Update Live Rates Now</span>
+                )}
               </button>
             </form>
           )}
@@ -828,9 +879,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                 <button
                   type="submit"
-                  className="w-full py-2 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] transition-colors shadow-md"
+                  disabled={isSaving === 'product'}
+                  className="w-full py-2 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {editingProductId ? 'Update Product Details' : 'Save Product with Multiple Pictures to Catalog'}
+                  {isSaving === 'product' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving Product to Catalog...</span>
+                    </>
+                  ) : (
+                    <span>{editingProductId ? 'Update Product Details' : 'Save Product with Multiple Pictures to Catalog'}</span>
+                  )}
                 </button>
               </form>
 
@@ -956,9 +1015,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                 <button
                   type="submit"
-                  className="w-full py-2 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423]"
+                  disabled={isSaving === 'banner'}
+                  className="w-full py-2 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Publish Header Banner Live
+                  {isSaving === 'banner' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Publishing Banner...</span>
+                    </>
+                  ) : (
+                    <span>Publish Header Banner Live</span>
+                  )}
                 </button>
               </form>
 
@@ -1072,9 +1139,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-[#4A0E17] text-[#D4AF37] font-extrabold text-xs rounded-xl hover:bg-[#6B1423] shadow-md transition-all"
+                  disabled={isSaving === 'bottomBanner'}
+                  className="w-full py-2.5 bg-[#4A0E17] text-[#D4AF37] font-extrabold text-xs rounded-xl hover:bg-[#6B1423] shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Save Bottom Banner
+                  {isSaving === 'bottomBanner' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving Bottom Banner...</span>
+                    </>
+                  ) : (
+                    <span>Save Bottom Banner</span>
+                  )}
                 </button>
               </form>
             </div>
@@ -1125,9 +1200,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                   <button
                     type="submit"
-                    className="w-full py-2 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] shrink-0 shadow-sm"
+                    disabled={isSaving === 'category'}
+                    className="w-full py-2 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] shrink-0 shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    Add Category Partition
+                    {isSaving === 'category' ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Adding Category Partition...</span>
+                      </>
+                    ) : (
+                      <span>Add Category Partition</span>
+                    )}
                   </button>
                 </div>
               </form>
@@ -1164,9 +1247,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleSaveEditCategory(catItem.id)}
-                              className="px-3 py-1 bg-emerald-600 text-white font-bold text-[11px] rounded"
+                              disabled={isSaving === `category-edit-${catItem.id}`}
+                              className="px-3 py-1 bg-emerald-600 text-white font-bold text-[11px] rounded disabled:opacity-50 flex items-center gap-1"
                             >
-                              Save
+                              {isSaving === `category-edit-${catItem.id}` && <Loader2 className="w-3 h-3 animate-spin" />}
+                              <span>Save</span>
                             </button>
                             <button
                               onClick={() => setEditingCatId(null)}
@@ -1358,9 +1443,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] shadow"
+                disabled={isSaving === 'company'}
+                className="w-full py-2.5 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] shadow disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Save & Publish Company Details Live
+                {isSaving === 'company' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving Company Details...</span>
+                  </>
+                ) : (
+                  <span>Save & Publish Company Details Live</span>
+                )}
               </button>
             </form>
           )}
@@ -1506,9 +1599,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] shadow"
+                disabled={isSaving === 'drawer'}
+                className="w-full py-2.5 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] shadow disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Save & Publish Hamburger Menu Dashboard Settings Live
+                {isSaving === 'drawer' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving Drawer Settings...</span>
+                  </>
+                ) : (
+                  <span>Save & Publish Hamburger Menu Dashboard Settings Live</span>
+                )}
               </button>
             </form>
           )}
@@ -1847,9 +1948,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] shadow"
+                disabled={isSaving === 'footer'}
+                className="w-full py-2.5 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] shadow disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Save & Publish Footer Configuration Live
+                {isSaving === 'footer' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving Footer Configuration...</span>
+                  </>
+                ) : (
+                  <span>Save & Publish Footer Configuration Live</span>
+                )}
               </button>
             </form>
           )}
@@ -1892,9 +2001,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] shadow"
+                disabled={isSaving === 'broadcast'}
+                className="w-full py-2.5 bg-[#4A0E17] text-[#D4AF37] font-bold text-xs rounded-xl hover:bg-[#6B1423] shadow disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Trigger In-App Update Pop-Up on All User Devices
+                {isSaving === 'broadcast' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Broadcasting App Update...</span>
+                  </>
+                ) : (
+                  <span>Trigger In-App Update Pop-Up on All User Devices</span>
+                )}
               </button>
             </form>
           )}

@@ -2,12 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { GoldScheme, UserProfile } from '../types';
 import { formatINR } from '../utils/priceCalculator';
 import { safeFetchJson } from '../utils/safeFetch';
-import { PiggyBank, CheckCircle2, Clock, Sparkles, CreditCard, ArrowRight, ShieldCheck, Download, Calendar } from 'lucide-react';
+import {
+  PiggyBank,
+  CheckCircle2,
+  Clock,
+  Sparkles,
+  CreditCard,
+  ArrowRight,
+  ShieldCheck,
+  Calendar,
+  AlertCircle,
+  X,
+  Lock,
+  Loader2,
+} from 'lucide-react';
 
 interface GoldSavingsSchemeProps {
   user: UserProfile;
   onOpenAuth: () => void;
   darkMode: boolean;
+}
+
+interface PaymentConfig {
+  isConfigured: boolean;
+  keyId: string | null;
+  mode: 'live' | 'demo';
+  message: string;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: any;
+  }
 }
 
 export const GoldSavingsScheme: React.FC<GoldSavingsSchemeProps> = ({
@@ -20,6 +46,46 @@ export const GoldSavingsScheme: React.FC<GoldSavingsSchemeProps> = ({
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState('');
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>({
+    isConfigured: false,
+    keyId: null,
+    mode: 'demo',
+    message: 'Demo Mode: Razorpay API keys not configured',
+  });
+  const [showDemoModal, setShowDemoModal] = useState(false);
+  const [pendingDemoOrder, setPendingDemoOrder] = useState<{ orderId: string; amount: number } | null>(null);
+  const [razorpayScriptLoaded, setRazorpayScriptLoaded] = useState(false);
+
+  // Load Razorpay Checkout SDK script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => setRazorpayScriptLoaded(true);
+    document.body.appendChild(script);
+
+    // Fetch payment gateway configuration
+    safeFetchJson<{ success?: boolean; isConfigured?: boolean; keyId?: string; mode?: 'live' | 'demo'; message?: string }>(
+      '/api/scheme/payment-config'
+    )
+      .then((res) => {
+        if (res?.success) {
+          setPaymentConfig({
+            isConfigured: Boolean(res.isConfigured),
+            keyId: res.keyId || null,
+            mode: res.mode || 'demo',
+            message: res.message || '',
+          });
+        }
+      })
+      .catch((e) => console.log('Payment config error:', e));
+
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (user.isLoggedIn && user.email) {
@@ -31,7 +97,9 @@ export const GoldSavingsScheme: React.FC<GoldSavingsSchemeProps> = ({
     if (!user.email) return;
     setLoading(true);
     try {
-      const data = await safeFetchJson<{ success?: boolean; scheme?: GoldScheme }>(`/api/scheme/${encodeURIComponent(user.email)}`);
+      const data = await safeFetchJson<{ success?: boolean; scheme?: GoldScheme }>(
+        `/api/scheme/${encodeURIComponent(user.email)}`
+      );
       if (data?.success && data.scheme) {
         setScheme(data.scheme);
       }
@@ -42,58 +110,149 @@ export const GoldSavingsScheme: React.FC<GoldSavingsSchemeProps> = ({
     }
   };
 
-  const handlePayInstallment = async () => {
+  const handleInitiatePayment = async () => {
     if (!user.isLoggedIn) {
       onOpenAuth();
       return;
     }
+
+    const payAmount = scheme?.monthlyInstallment || selectedMonthly;
     setPaying(true);
     setPaymentSuccessMsg('');
 
     try {
-      const data = await safeFetchJson<{ success?: boolean; scheme?: GoldScheme; receipt?: any }>('/api/scheme/pay', {
+      // 1. Create order on backend
+      const orderRes = await safeFetchJson<{
+        success?: boolean;
+        mode?: 'razorpay' | 'demo';
+        orderId?: string;
+        amount?: number;
+        currency?: string;
+        keyId?: string;
+        message?: string;
+      }>('/api/scheme/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, amount: scheme?.monthlyInstallment || selectedMonthly }),
+        body: JSON.stringify({ email: user.email, amount: payAmount }),
       });
-      setPaying(false);
 
-      if (data?.success && data.scheme) {
-        setScheme(data.scheme);
-        setPaymentSuccessMsg(`Payment of ${formatINR(data.receipt?.amount || selectedMonthly)} successful! Ref: ${data.receipt?.txId || 'TXN-' + Date.now()}`);
-      } else {
-        // Local fallback calculation for offline or server error
-        const currentPaid = scheme ? scheme.monthsPaid + 1 : 1;
-        const monthly = scheme ? scheme.monthlyInstallment : selectedMonthly;
-        const totalPaid = currentPaid * monthly;
-        const bonus = currentPaid >= 10 ? monthly : 0;
-        const localScheme: GoldScheme = {
-          id: scheme?.id || `SCHEME-${Date.now()}`,
-          email: user.email,
-          schemeName: 'Swarna Varsha Savings Scheme',
-          monthlyInstallment: monthly,
-          totalMonths: 11,
-          monthsPaid: currentPaid,
-          totalPaid,
-          bonusDiscount: bonus,
-          nextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          history: [
-            ...(scheme?.history || []),
-            {
-              month: currentPaid,
-              amount: monthly,
-              date: new Date().toISOString().split('T')[0],
-              status: 'Paid',
-              transactionId: `TXN-LOCAL-${Date.now()}`,
-            },
-          ],
-        };
-        setScheme(localScheme);
-        setPaymentSuccessMsg(`Payment of ${formatINR(monthly)} recorded successfully! Ref: TXN-LOCAL-${Date.now()}`);
+      if (!orderRes?.success) {
+        throw new Error(orderRes?.message || 'Failed to create payment order');
       }
-    } catch (err) {
+
+      // 2. If Razorpay is live and SDK is loaded, open official Razorpay Checkout popup
+      if (orderRes.mode === 'razorpay' && orderRes.keyId && window.Razorpay) {
+        const options = {
+          key: orderRes.keyId,
+          amount: orderRes.amount,
+          currency: orderRes.currency || 'INR',
+          name: 'Shubham Jewellers',
+          description: `Swarna Varsha Savings Scheme (Installment ${formatINR(payAmount)})`,
+          order_id: orderRes.orderId,
+          handler: async (response: any) => {
+            setPaying(true);
+            try {
+              const verifyRes = await safeFetchJson<{
+                success?: boolean;
+                scheme?: GoldScheme;
+                receipt?: any;
+                message?: string;
+              }>('/api/scheme/verify-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: user.email,
+                  amount: payAmount,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  isDemo: false,
+                }),
+              });
+
+              setPaying(false);
+              if (verifyRes?.success && verifyRes.scheme) {
+                setScheme(verifyRes.scheme);
+                setPaymentSuccessMsg(
+                  `Payment of ${formatINR(payAmount)} verified successfully via Razorpay! Ref: ${
+                    response.razorpay_payment_id || verifyRes.receipt?.txId
+                  }`
+                );
+              } else {
+                alert(verifyRes?.message || 'Payment signature verification failed.');
+              }
+            } catch (err: any) {
+              setPaying(false);
+              alert('Error verifying payment: ' + (err?.message || err));
+            }
+          },
+          prefill: {
+            name: user.name || 'Valued Customer',
+            email: user.email,
+          },
+          theme: {
+            color: '#4A0E17',
+          },
+          modal: {
+            ondismiss: () => {
+              setPaying(false);
+            },
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      } else {
+        // 3. Demo / Test Mode Simulation Dialog
+        setPaying(false);
+        setPendingDemoOrder({
+          orderId: orderRes.orderId || `DEMO_ORD_${Date.now()}`,
+          amount: payAmount,
+        });
+        setShowDemoModal(true);
+      }
+    } catch (err: any) {
       setPaying(false);
-      setPaymentSuccessMsg('Payment recorded successfully!');
+      alert('Unable to initiate payment: ' + (err?.message || err));
+    }
+  };
+
+  const handleConfirmDemoPayment = async () => {
+    if (!pendingDemoOrder || !user.email) return;
+    setPaying(true);
+    setShowDemoModal(false);
+
+    try {
+      const demoTxId = `TXN_DEMO_${Date.now().toString().slice(-6)}`;
+      const verifyRes = await safeFetchJson<{
+        success?: boolean;
+        scheme?: GoldScheme;
+        receipt?: any;
+        message?: string;
+      }>('/api/scheme/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          amount: pendingDemoOrder.amount,
+          razorpay_order_id: pendingDemoOrder.orderId,
+          razorpay_payment_id: demoTxId,
+          isDemo: true,
+        }),
+      });
+
+      setPaying(false);
+      if (verifyRes?.success && verifyRes.scheme) {
+        setScheme(verifyRes.scheme);
+        setPaymentSuccessMsg(
+          `[TEST MODE] Simulated payment of ${formatINR(pendingDemoOrder.amount)} recorded! Ref: ${demoTxId}`
+        );
+      }
+    } catch (err: any) {
+      setPaying(false);
+      console.error('Demo payment error:', err);
+    } finally {
+      setPendingDemoOrder(null);
     }
   };
 
@@ -131,11 +290,29 @@ export const GoldSavingsScheme: React.FC<GoldSavingsSchemeProps> = ({
             <span className="flex items-center gap-1">
               <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" /> Zero Admin Fee
             </span>
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="w-4 h-4 text-[#D4AF37]" /> Razorpay Payment Gateway
+            </span>
           </div>
         </div>
 
         <PiggyBank className="w-64 h-64 absolute -right-10 -bottom-10 text-[#D4AF37]/10 pointer-events-none hidden md:block" />
       </div>
+
+      {/* Gateway Mode Notification Bar */}
+      {!paymentConfig.isConfigured && (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Gateway Notice:</strong> Razorpay keys are not yet configured in environment. Installments will process via <strong>Simulated Demo Gateway</strong>.
+            </span>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-200">
+            TEST MODE
+          </span>
+        </div>
+      )}
 
       {/* Grid: Interactive Calculator & Active Passbook */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -213,12 +390,21 @@ export const GoldSavingsScheme: React.FC<GoldSavingsSchemeProps> = ({
               </button>
             ) : (
               <button
-                onClick={handlePayInstallment}
+                onClick={handleInitiatePayment}
                 disabled={paying}
-                className="w-full py-3 bg-[#4A0E17] text-[#D4AF37] font-bold text-sm rounded-xl hover:bg-[#6B1423] shadow transition-colors flex items-center justify-center space-x-2 border border-[#D4AF37]/40"
+                className="w-full py-3 bg-[#4A0E17] text-[#D4AF37] font-bold text-sm rounded-xl hover:bg-[#6B1423] shadow transition-colors flex items-center justify-center space-x-2 border border-[#D4AF37]/40 disabled:opacity-50"
               >
-                <CreditCard className="w-4 h-4" />
-                <span>{paying ? 'Processing...' : `Start & Pay Month 1 (${formatINR(selectedMonthly)})`}</span>
+                {paying ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Connecting Gateway...</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4" />
+                    <span>{`Pay Month 1 (${formatINR(selectedMonthly)})`}</span>
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -247,7 +433,7 @@ export const GoldSavingsScheme: React.FC<GoldSavingsSchemeProps> = ({
             </div>
 
             {paymentSuccessMsg && (
-              <div className="mb-4 p-3 bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-2">
+              <div className="mb-4 p-3 bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs font-bold flex items-center space-x-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{paymentSuccessMsg}</span>
               </div>
@@ -340,19 +526,94 @@ export const GoldSavingsScheme: React.FC<GoldSavingsSchemeProps> = ({
           {user.isLoggedIn && scheme && (
             <div className="mt-4 pt-3 border-t border-amber-200 dark:border-zinc-800">
               <button
-                onClick={handlePayInstallment}
+                onClick={handleInitiatePayment}
                 disabled={paying}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center space-x-2"
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center space-x-2 disabled:opacity-50"
               >
-                <CreditCard className="w-4 h-4" />
-                <span>
-                  {paying ? 'Processing Payment...' : `Pay Next Installment (${formatINR(scheme.monthlyInstallment)})`}
-                </span>
+                {paying ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Connecting Gateway...</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4" />
+                    <span>{`Pay Next Installment (${formatINR(scheme.monthlyInstallment)})`}</span>
+                  </>
+                )}
               </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Demo Mode Payment Confirmation Modal */}
+      {showDemoModal && pendingDemoOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-fade-in">
+          <div className="bg-[#FAF7F2] dark:bg-[#181315] text-amber-950 dark:text-amber-100 border border-[#D4AF37]/50 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button
+              onClick={() => setShowDemoModal(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/40 mx-auto flex items-center justify-center mb-2">
+                <CreditCard className="w-6 h-6 text-amber-600 dark:text-[#D4AF37]" />
+              </div>
+              <h3 className="text-base font-bold text-[#4A0E17] dark:text-[#F3E5AB] font-serif">
+                Simulated Payment Gateway (Demo Mode)
+              </h3>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                Razorpay API keys (RAZORPAY_KEY_ID) are not configured. You can simulate a successful installment payment to test passbook records.
+              </p>
+            </div>
+
+            <div className="bg-amber-100/60 dark:bg-zinc-800/80 p-3.5 rounded-xl border border-amber-200 dark:border-zinc-700 text-xs space-y-2 mb-5">
+              <div className="flex justify-between">
+                <span className="text-zinc-600 dark:text-zinc-400">Customer:</span>
+                <strong>{user.email}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-600 dark:text-zinc-400">Order ID:</span>
+                <span className="font-mono text-[11px]">{pendingDemoOrder.orderId}</span>
+              </div>
+              <div className="flex justify-between text-sm font-bold text-[#4A0E17] dark:text-[#D4AF37]">
+                <span>Amount:</span>
+                <span>{formatINR(pendingDemoOrder.amount)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={handleConfirmDemoPayment}
+                disabled={paying}
+                className="w-full py-2.5 bg-gradient-to-r from-[#4A0E17] to-[#6B1423] text-[#D4AF37] font-bold text-xs uppercase tracking-wider rounded-xl shadow hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 border border-[#D4AF37]/50 disabled:opacity-50"
+              >
+                {paying ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-300" />
+                    <span>Recording Payment...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Simulate Successful Payment</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowDemoModal(false)}
+                className="w-full py-2 text-zinc-500 hover:text-zinc-700 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

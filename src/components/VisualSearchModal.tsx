@@ -289,14 +289,22 @@ export const VisualSearchModal: React.FC<VisualSearchModalProps> = ({
                   />
                   <button
                     type="button"
+                    disabled={isAnalyzing}
                     onClick={() => {
                       if (urlInput.trim()) {
                         processImage(urlInput.trim());
                       }
                     }}
-                    className="px-4 py-2 bg-[#4A0E17] text-[#D4AF37] text-xs font-bold rounded-xl hover:bg-[#6B1423] shrink-0"
+                    className="px-4 py-2 bg-[#4A0E17] text-[#D4AF37] text-xs font-bold rounded-xl hover:bg-[#6B1423] shrink-0 disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    Analyze
+                    {isAnalyzing ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Analyzing...</span>
+                      </>
+                    ) : (
+                      <span>Analyze</span>
+                    )}
                   </button>
                 </div>
                 <p className="text-[10px] text-zinc-500">

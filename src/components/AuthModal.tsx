@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
-import { Mail, Lock, CheckCircle2, MapPin, User, ArrowRight, ShieldCheck, Sparkles, KeyRound } from 'lucide-react';
+import { Mail, Lock, CheckCircle2, MapPin, User, ArrowRight, ShieldCheck, Sparkles, KeyRound, Loader2 } from 'lucide-react';
 import { safeFetchJson } from '../utils/safeFetch';
 import { ImageInputSelector } from './ImageInputSelector';
 
@@ -83,21 +83,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setSuccessMsg(`Verification code dispatched for ${cleanEmail}`);
         setStep('otp');
       } else if (data?.code === 'EMAIL_NOT_FOUND') {
-        // ✅ NEW: "No email found" popup — the backend confirmed this email's
-        // domain can't receive mail, so stop here instead of silently falling
-        // back to a demo OTP that would let an unreachable/fake email through.
         setErrorMsg(data.message || 'No email found for this address. Please check for typos and try again.');
       } else {
-        // Even on network hitch, supply local fallback code
-        setReceivedOtp('7788');
-        setSuccessMsg(`Verification code ready for ${cleanEmail}`);
-        setStep('otp');
+        setErrorMsg(data?.message || 'Unable to dispatch verification code. Please check email and try again.');
       }
     } catch (err: any) {
       setLoading(false);
-      setReceivedOtp('7788');
-      setSuccessMsg(`Verification code ready for ${cleanEmail}`);
-      setStep('otp');
+      setErrorMsg('Failed to connect to authentication server. Please check your connection and retry.');
     }
   };
 
@@ -132,22 +124,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           onClose();
         }
       } else {
-        setErrorMsg(data?.message || 'Invalid code. Use code above or demo code 7788.');
+        setErrorMsg(data?.message || 'Invalid verification code. Please check and try again.');
       }
     } catch (err: any) {
       setLoading(false);
-      // Fallback verification
-      const emailPrefix = email.split('@')[0] || 'Customer';
-      const defaultDerivedName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-      setUser({
-        email: email.trim().toLowerCase(),
-        name: name || defaultDerivedName,
-        avatar,
-        address: { street, city, state, pincode },
-        isLoggedIn: true,
-      });
-      setStep('profile');
-      if (!mandatory) onClose();
+      setErrorMsg('Unable to verify OTP right now. Please check your connection and try again.');
     }
   };
 
@@ -252,10 +233,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 bg-gradient-to-r from-[#4A0E17] to-[#6B1423] text-[#D4AF37] font-bold text-xs uppercase tracking-wider rounded-xl shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center space-x-2 border border-[#D4AF37]/50"
+                className="w-full py-2.5 bg-gradient-to-r from-[#4A0E17] to-[#6B1423] text-[#D4AF37] font-bold text-xs uppercase tracking-wider rounded-xl shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center space-x-2 border border-[#D4AF37]/50 disabled:opacity-50"
               >
                 {loading ? (
-                  <span>Sending Verification Code...</span>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Sending Verification Code...</span>
+                  </>
                 ) : (
                   <>
                     <span>Send Verification Code</span>
@@ -336,10 +320,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 bg-gradient-to-r from-[#4A0E17] to-[#6B1423] text-[#D4AF37] font-bold text-xs uppercase tracking-wider rounded-xl shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center space-x-2 border border-[#D4AF37]/50"
+                className="w-full py-2.5 bg-gradient-to-r from-[#4A0E17] to-[#6B1423] text-[#D4AF37] font-bold text-xs uppercase tracking-wider rounded-xl shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center space-x-2 border border-[#D4AF37]/50 disabled:opacity-50"
               >
                 {loading ? (
-                  <span>Verifying...</span>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Verifying OTP...</span>
+                  </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5" />

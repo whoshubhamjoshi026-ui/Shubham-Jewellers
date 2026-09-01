@@ -4,16 +4,38 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import dns from 'dns';
+import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import mongoose, { Schema } from 'mongoose';
+import Razorpay from 'razorpay';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-import { initialGoldRates, initialBanners, initialBottomBanner, initialCategoryItems, initialProducts, initialVersionInfo, initialCompanyInfo, initialDrawerConfig, initialFooterConfig } from './src/data/initialData.js';
-import { GoldRates, Banner, BottomBanner, CategoryItem, Product, AppVersionInfo, GoldScheme, CompanyInfo, UserSyncedData, DrawerConfig, FooterConfig } from './src/types.js';
+import {
+  initialGoldRates,
+  initialBanners,
+  initialBottomBanner,
+  initialCategoryItems,
+  initialProducts,
+  initialVersionInfo,
+  initialCompanyInfo,
+  initialDrawerConfig,
+  initialFooterConfig,
+} from './src/data/initialData.js';
+import {
+  GoldRates,
+  Banner,
+  BottomBanner,
+  CategoryItem,
+  Product,
+  AppVersionInfo,
+  GoldScheme,
+  CompanyInfo,
+  UserSyncedData,
+  DrawerConfig,
+  FooterConfig,
+} from './src/types.js';
 
-// Works in both ESM (local dev via tsx) and the CJS bundle esbuild produces for
-// production (`--format=cjs`). In CJS, __dirname/__filename are already provided
-// natively by the module wrapper, so import.meta.url is never evaluated there —
-// which matters because import.meta.url is undefined once esbuild bundles to CJS.
+// Works in both ESM (local dev via tsx) and the CJS bundle esbuild produces for production
 declare const __dirname: string | undefined;
 function resolveDirname(): string {
   if (typeof __dirname !== 'undefined') return __dirname;
@@ -22,6 +44,317 @@ function resolveDirname(): string {
 
 const resolvedDirname = resolveDirname();
 
+/* ==========================================================================
+   MONGOOSE SCHEMAS & MODELS (MongoDB Atlas)
+   ========================================================================== */
+
+// 1. Gold Rates Schema
+const GoldRatesSchema = new Schema<GoldRates>(
+  {
+    gold24k: { type: Number, required: true },
+    gold22k: { type: Number, required: true },
+    gold18k: { type: Number, required: true },
+    silver: { type: Number, required: true },
+    lastUpdated: { type: String, default: '' },
+    trend24k: { type: Number, default: 0 },
+    trendSilver: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
+export const RatesModel = mongoose.model<GoldRates>('GoldRate', GoldRatesSchema);
+
+// 2. Banner Schema
+const BannerSchema = new Schema<Banner>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    title: { type: String, required: true },
+    subtitle: { type: String, default: '' },
+    image: { type: String, required: true },
+    imageUrl: { type: String, default: '' },
+    discountBadge: { type: String, default: '' },
+    discountTag: { type: String, default: '' },
+    ctaText: { type: String, default: 'Explore Collection' },
+    categoryLink: { type: String, default: 'Gold' },
+  },
+  { timestamps: true }
+);
+export const BannerModel = mongoose.model<Banner>('Banner', BannerSchema);
+
+// 3. Category Items Schema
+const CategoryItemSchema = new Schema<CategoryItem>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    name: { type: String, required: true },
+    image: { type: String, default: '' },
+    order: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
+export const CategoryModel = mongoose.model<CategoryItem>('Category', CategoryItemSchema);
+
+// 4. Bottom Banner Schema
+const BottomBannerSchema = new Schema<BottomBanner>(
+  {
+    id: { type: String, default: 'bb1' },
+    title: { type: String, required: true },
+    subtitle: { type: String, default: '' },
+    discountBadge: { type: String, default: '' },
+    image: { type: String, required: true },
+    categoryLink: { type: String, default: 'Gold' },
+    ctaText: { type: String, default: 'Join Swarna Scheme Now' },
+  },
+  { timestamps: true }
+);
+export const BottomBannerModel = mongoose.model<BottomBanner>('BottomBanner', BottomBannerSchema);
+
+// 5. Product Schema
+const ProductSchema = new Schema<Product>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    title: { type: String, required: true },
+    category: { type: String, required: true },
+    purity: { type: String, default: '22K' },
+    weightGrams: { type: Number, required: true },
+    makingChargePercent: { type: Number, default: 12 },
+    baseMakingCharge: { type: Number, default: 250 },
+    image: { type: String, required: true },
+    gallery: { type: [String], default: [] },
+    description: { type: String, default: '' },
+    gender: { type: String, default: 'Women' },
+    collection: { type: String, default: 'Daily Wear' },
+    isNewArrival: { type: Boolean, default: true },
+    isFeatured: { type: Boolean, default: true },
+    inStock: { type: Boolean, default: true },
+    hallmarkCertified: { type: Boolean, default: true },
+  },
+  { timestamps: true }
+);
+export const ProductModel = mongoose.model<Product>('Product', ProductSchema);
+
+// 6. Company Info Schema
+const CompanyInfoSchema = new Schema<CompanyInfo>(
+  {
+    name: { type: String, required: true },
+    tagline: { type: String, default: '' },
+    establishedYear: { type: String, default: '1988' },
+    bisHallmarkReg: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    whatsappNumber: { type: String, default: '' },
+    email: { type: String, default: '' },
+    address: { type: String, default: '' },
+    storeHours: { type: String, default: '' },
+    aboutText: { type: String, default: '' },
+  },
+  { timestamps: true }
+);
+export const CompanyInfoModel = mongoose.model<CompanyInfo>('CompanyInfo', CompanyInfoSchema);
+
+// 7. Gold Savings Scheme Schema
+const GoldSchemeSchema = new Schema<GoldScheme>(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    email: { type: String, required: true, index: true },
+    schemeName: { type: String, default: 'Shubham Swarna Varsha Plan' },
+    monthlyInstallment: { type: Number, required: true },
+    totalMonths: { type: Number, default: 11 },
+    monthsPaid: { type: Number, default: 0 },
+    totalPaid: { type: Number, default: 0 },
+    bonusDiscount: { type: Number, default: 0 },
+    nextDueDate: { type: String, default: '' },
+    history: {
+      type: [
+        {
+          month: Number,
+          amount: Number,
+          date: String,
+          status: String,
+          transactionId: String,
+        },
+      ],
+      default: [],
+    },
+  },
+  { timestamps: true }
+);
+export const GoldSchemeModel = mongoose.model<GoldScheme>('GoldScheme', GoldSchemeSchema);
+
+// 8. User Synced Data Schema
+const UserSyncedDataSchema = new Schema(
+  {
+    email: { type: String, required: true, unique: true, index: true },
+    profile: {
+      name: { type: String, default: '' },
+      email: { type: String, default: '' },
+      avatar: { type: String, default: '' },
+      address: {
+        street: { type: String, default: '' },
+        city: { type: String, default: '' },
+        state: { type: String, default: '' },
+        pincode: { type: String, default: '' },
+      },
+      isLoggedIn: { type: Boolean, default: false },
+    },
+    cart: { type: Schema.Types.Mixed, default: [] },
+    wishlistIds: { type: [String], default: [] },
+    lastUpdated: { type: String, default: '' },
+  },
+  { timestamps: true }
+);
+export const UserDataModel = mongoose.model<UserSyncedData>('UserData', UserSyncedDataSchema as any);
+
+// 9. Drawer Configuration Schema
+const DrawerConfigSchema = new Schema<DrawerConfig>(
+  {
+    headerTitle: { type: String, default: 'SHUBHAM JEWELLERS' },
+    welcomeSubtitle: { type: String, default: 'Heritage & BIS Hallmarked Fine Gold' },
+    aboutBtnText: { type: String, default: 'About Us & Showroom Info' },
+    schemeBtnTitle: { type: String, default: 'Jewellery Savings Plan' },
+    schemeBtnSubtitle: { type: String, default: 'Pay 10 Installments & Get 1 Month Bonus' },
+    whatsappBtnTitle: { type: String, default: 'Direct WhatsApp Support' },
+    whatsappBtnSubtitle: { type: String, default: 'Chat live with our gold consultants' },
+    categorySectionTitle: { type: String, default: 'Shop By Category' },
+    shopForSectionTitle: { type: String, default: 'Shop For' },
+    footerTagline: { type: String, default: 'Shubham Jewellers • Verified BIS Hallmarked' },
+  },
+  { timestamps: true }
+);
+export const DrawerConfigModel = mongoose.model<DrawerConfig>('DrawerConfig', DrawerConfigSchema);
+
+// 10. Footer Configuration Schema
+const FooterConfigSchema = new Schema<FooterConfig>(
+  {
+    trustBadges: {
+      type: [
+        {
+          title: String,
+          subtitle: String,
+          icon: String,
+        },
+      ],
+      default: [],
+    },
+    brandTitle: { type: String, default: 'SHUBHAM JEWELLERS' },
+    brandDescription: { type: String, default: '' },
+    officialStoreLabel: { type: String, default: 'Official Authorised Store' },
+    collectionsTitle: { type: String, default: 'Collections & Categories' },
+    collectionsList: { type: [String], default: [] },
+    customerCareTitle: { type: String, default: 'Customer Care & Store' },
+    tollFreeText: { type: String, default: '' },
+    careEmail: { type: String, default: '' },
+    storeAddress: { type: String, default: '' },
+    schemeTitle: { type: String, default: '' },
+    schemeDescription: { type: String, default: '' },
+    schemeHighlightBox: { type: String, default: '' },
+    copyrightText: { type: String, default: '© 2026 Shubham Jewellers. All rights reserved.' },
+  },
+  { timestamps: true }
+);
+export const FooterConfigModel = mongoose.model<FooterConfig>('FooterConfig', FooterConfigSchema);
+
+// 11. App Version Schema
+const VersionInfoSchema = new Schema<AppVersionInfo>(
+  {
+    currentVersion: { type: String, default: '1.0.0' },
+    latestVersion: { type: String, default: '1.0.0' },
+    updateAvailable: { type: Boolean, default: false },
+    updateMessage: { type: String, default: '' },
+    releaseNotes: { type: [String], default: [] },
+  },
+  { timestamps: true }
+);
+export const VersionInfoModel = mongoose.model<AppVersionInfo>('AppVersion', VersionInfoSchema);
+
+/* ==========================================================================
+   DATABASE SEEDING (Run if MongoDB Collections are Empty)
+   ========================================================================== */
+
+async function seedInitialDataIfEmpty() {
+  try {
+    const rateCount = await RatesModel.countDocuments();
+    if (rateCount === 0) {
+      await RatesModel.create(initialGoldRates);
+      console.log('🌱 Seeded default Gold & Silver rates to MongoDB');
+    }
+
+    const bannerCount = await BannerModel.countDocuments();
+    if (bannerCount === 0) {
+      await BannerModel.insertMany(initialBanners);
+      console.log(`🌱 Seeded ${initialBanners.length} banners to MongoDB`);
+    }
+
+    const productCount = await ProductModel.countDocuments();
+    if (productCount === 0) {
+      await ProductModel.insertMany(initialProducts);
+      console.log(`🌱 Seeded ${initialProducts.length} products to MongoDB`);
+    }
+
+    const categoryCount = await CategoryModel.countDocuments();
+    if (categoryCount === 0) {
+      await CategoryModel.insertMany(initialCategoryItems);
+      console.log(`🌱 Seeded ${initialCategoryItems.length} categories to MongoDB`);
+    }
+
+    const bottomBannerCount = await BottomBannerModel.countDocuments();
+    if (bottomBannerCount === 0) {
+      await BottomBannerModel.create(initialBottomBanner);
+      console.log('🌱 Seeded bottom banner to MongoDB');
+    }
+
+    const companyCount = await CompanyInfoModel.countDocuments();
+    if (companyCount === 0) {
+      await CompanyInfoModel.create(initialCompanyInfo);
+      console.log('🌱 Seeded company info to MongoDB');
+    }
+
+    const drawerCount = await DrawerConfigModel.countDocuments();
+    if (drawerCount === 0) {
+      await DrawerConfigModel.create(initialDrawerConfig);
+      console.log('🌱 Seeded drawer config to MongoDB');
+    }
+
+    const footerCount = await FooterConfigModel.countDocuments();
+    if (footerCount === 0) {
+      await FooterConfigModel.create(initialFooterConfig);
+      console.log('🌱 Seeded footer config to MongoDB');
+    }
+
+    const versionCount = await VersionInfoModel.countDocuments();
+    if (versionCount === 0) {
+      await VersionInfoModel.create(initialVersionInfo);
+      console.log('🌱 Seeded version info to MongoDB');
+    }
+
+    const schemeCount = await GoldSchemeModel.countDocuments();
+    if (schemeCount === 0) {
+      await GoldSchemeModel.create({
+        id: 'SCH-89123',
+        email: 'customer@gmail.com',
+        schemeName: 'Shubham Swarna Varsha Plan',
+        monthlyInstallment: 5000,
+        totalMonths: 11,
+        monthsPaid: 4,
+        totalPaid: 20000,
+        bonusDiscount: 5000,
+        nextDueDate: '15th Next Month',
+        history: [
+          { month: 1, amount: 5000, date: '2026-04-10', status: 'Paid', transactionId: 'TXN89123' },
+          { month: 2, amount: 5000, date: '2026-05-12', status: 'Paid', transactionId: 'TXN89452' },
+          { month: 3, amount: 5000, date: '2026-06-11', status: 'Paid', transactionId: 'TXN89981' },
+          { month: 4, amount: 5000, date: '2026-07-15', status: 'Paid', transactionId: 'TXN90412' },
+          { month: 5, amount: 5000, date: 'Pending', status: 'Pending' },
+        ],
+      });
+      console.log('🌱 Seeded demo customer scheme to MongoDB');
+    }
+  } catch (err) {
+    console.error('Error during MongoDB initial seed:', err);
+  }
+}
+
+/* ==========================================================================
+   SERVER INITIALIZATION & API ROUTES
+   ========================================================================== */
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
@@ -29,29 +362,22 @@ async function startServer() {
   const NODE_ENV = process.env.NODE_ENV || 'development';
 
   // Allow CORS from mobile apps (capacitor://, file://, localhost) and web clients
-  app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }));
+  app.use(
+    cors({
+      origin: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    })
+  );
 
   // Increase payload limit to 50mb to support base64 product photo uploads
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-  // Setup JSON Persistence Directory (writable location for production)
-  // ✅ FIXED: DATA_DIR is now configurable via the DATA_DIR environment variable.
-  // On Render's free tier the filesystem is EPHEMERAL — anything written to
-  // process.cwd()/data is wiped on every restart/redeploy, which is why admin
-  // edits (banners, About Us, products, etc.) were reverting to defaults.
-  // To fix this permanently: attach a Render "Persistent Disk" to this service,
-  // set its Mount Path (e.g. /var/data), and set an environment variable
-  // DATA_DIR=/var/data in the Render dashboard. If DATA_DIR is not set, it
-  // falls back to the old behavior (process.cwd()/data) so local dev still works.
+  // File-based persistence fallback directory
   const DATA_DIR = process.env.DATA_DIR
     ? path.resolve(process.env.DATA_DIR)
     : path.join(process.cwd(), 'data');
-
   const usingPersistentDisk = !!process.env.DATA_DIR;
 
   try {
@@ -62,20 +388,7 @@ async function startServer() {
     console.error('[Persistence Error] Failed to create data directory:', err);
   }
 
-  if (!usingPersistentDisk) {
-    console.warn(
-      '\n⚠️  WARNING: DATA_DIR environment variable is NOT set.\n' +
-      '   Data is being saved to a local folder that may be WIPED on the next\n' +
-      '   deploy/restart (this is normal on Render\'s free tier without a Disk).\n' +
-      '   To make admin changes (banners, products, About Us, etc.) permanent:\n' +
-      '   1. In Render Dashboard → your service → "Disks" → Add Disk\n' +
-      '   2. Set a Mount Path, e.g. /var/data\n' +
-      '   3. Add an environment variable: DATA_DIR=/var/data\n' +
-      '   4. Redeploy.\n'
-    );
-  }
-
-  // Safe file loader helper
+  // Safe file loader helper (used as fallback when MongoDB is not connected)
   function loadData<T>(filename: string, defaultValue: T): T {
     const filePath = path.join(DATA_DIR, filename);
     try {
@@ -86,7 +399,6 @@ async function startServer() {
     } catch (err) {
       console.error(`[Persistence Error] Failed to read ${filename}, fallback to default:`, err);
     }
-    // Write default value if missing or corrupted
     saveData(filename, defaultValue);
     return defaultValue;
   }
@@ -101,8 +413,18 @@ async function startServer() {
     }
   }
 
-  // Default initial scheme record
-  const initialSchemes: Record<string, GoldScheme> = {
+  // Fallback in-memory states
+  let currentRates: GoldRates = loadData<GoldRates>('rates.json', { ...initialGoldRates });
+  let currentBanners: Banner[] = loadData<Banner[]>('banners.json', [...initialBanners]);
+  let currentProducts: Product[] = loadData<Product[]>('products.json', [...initialProducts]);
+  let currentCategories: CategoryItem[] = loadData<CategoryItem[]>('categories.json', [...initialCategoryItems]);
+  let currentBottomBanner: BottomBanner = loadData<BottomBanner>('bottom-banner.json', { ...initialBottomBanner });
+  let currentDrawerConfig: DrawerConfig = loadData<DrawerConfig>('drawer-config.json', { ...initialDrawerConfig });
+  let currentFooterConfig: FooterConfig = loadData<FooterConfig>('footer-config.json', { ...initialFooterConfig });
+  let currentVersion: AppVersionInfo = loadData<AppVersionInfo>('version.json', { ...initialVersionInfo });
+  let currentCompanyInfo: CompanyInfo = loadData<CompanyInfo>('company-info.json', { ...initialCompanyInfo });
+  const userDataStore: Record<string, UserSyncedData> = loadData<Record<string, UserSyncedData>>('user-data.json', {});
+  const schemes: Record<string, GoldScheme> = loadData<Record<string, GoldScheme>>('schemes.json', {
     'customer@gmail.com': {
       id: 'SCH-89123',
       email: 'customer@gmail.com',
@@ -121,53 +443,79 @@ async function startServer() {
         { month: 5, amount: 5000, date: 'Pending', status: 'Pending' },
       ],
     },
-  };
+  });
 
-  // Default initial categories
-  const initialCategories: string[] = [
-    'Gold',
-    'Diamond',
-    'Silver',
-    'Coins',
-    'Solitaires',
-    'Kundan & Antique',
-    'Mangalsutra',
-  ];
+  // Generated OTP cache - Strictly empty initial state (no hardcoded backdoors)
+  const otpStore: Record<string, string> = {};
 
-  // Load state from JSON files (or fallback & create defaults)
-  let currentRates: GoldRates = loadData<GoldRates>('rates.json', { ...initialGoldRates });
-  let currentBanners: Banner[] = loadData<Banner[]>('banners.json', [...initialBanners]);
-  
-  // Persistent product state handling
-  const deletedProductIds: string[] = loadData<string[]>('deleted-products.json', []);
-  let savedProducts: Product[] = loadData<Product[]>('products.json', []);
-
-  if (savedProducts.length === 0) {
-    savedProducts = [...initialProducts];
-  } else {
-    // Ensure any default product that has NOT been explicitly deleted and is missing from savedProducts is merged
-    for (const initP of initialProducts) {
-      if (!deletedProductIds.includes(initP.id) && !savedProducts.some((sp) => sp.id === initP.id)) {
-        savedProducts.push(initP);
-      }
+  // Razorpay Gateway Client (Lazy initialization to prevent crashes if keys not yet set)
+  let razorpayClient: Razorpay | null = null;
+  function getRazorpay(): Razorpay | null {
+    const keyId = process.env.RAZORPAY_KEY_ID?.trim();
+    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
+    if (!keyId || !keySecret) return null;
+    if (!razorpayClient) {
+      razorpayClient = new Razorpay({
+        key_id: keyId,
+        key_secret: keySecret,
+      });
     }
+    return razorpayClient;
   }
 
-  let currentProducts: Product[] = savedProducts.filter((p) => !deletedProductIds.includes(p.id));
-  saveData('products.json', currentProducts);
-  let currentCategories: any[] = loadData<any[]>('categories.json', [...initialCategoryItems]);
-  let currentBottomBanner: BottomBanner = loadData<BottomBanner>('bottom-banner.json', { ...initialBottomBanner });
-  let currentDrawerConfig: DrawerConfig = loadData<DrawerConfig>('drawer-config.json', { ...initialDrawerConfig });
-  let currentFooterConfig: FooterConfig = loadData<FooterConfig>('footer-config.json', { ...initialFooterConfig });
-  let currentVersion: AppVersionInfo = loadData<AppVersionInfo>('version.json', { ...initialVersionInfo });
-  let currentCompanyInfo: CompanyInfo = loadData<CompanyInfo>('company-info.json', { ...initialCompanyInfo });
-  const userDataStore: Record<string, UserSyncedData> = loadData<Record<string, UserSyncedData>>('user-data.json', {});
-  const schemes: Record<string, GoldScheme> = loadData<Record<string, GoldScheme>>('schemes.json', initialSchemes);
+  // Check ADMIN_PIN configuration
+  const configuredAdminPin = process.env.ADMIN_PIN?.trim();
+  if (!configuredAdminPin) {
+    console.error('\n' + '='.repeat(70));
+    console.error('❌ CRITICAL SECURITY ALERT: ADMIN_PIN environment variable is NOT set!');
+    console.error('   Admin Passcode verification will be DISABLED until ADMIN_PIN is set.');
+    console.error('   Please add ADMIN_PIN=<your-secure-pin> in .env or your deployment dashboard.');
+    console.error('='.repeat(70) + '\n');
+  }
 
-  // Generated OTP cache
-  const otpStore: Record<string, string> = {
-    'customer@gmail.com': '7788',
-  };
+  /* ==========================================================================
+     CONNECT TO MONGODB ATLAS
+     ========================================================================== */
+  let isMongoConnected = false;
+  const mongoUri = process.env.MONGODB_URI?.trim();
+
+  if (mongoUri) {
+    try {
+      console.log('🔄 Connecting to MongoDB Atlas...');
+      await mongoose.connect(mongoUri, {
+        serverSelectionTimeoutMS: 8000,
+      });
+      isMongoConnected = true;
+      console.log('🍃 MongoDB Atlas connected successfully!');
+      await seedInitialDataIfEmpty();
+    } catch (mongoErr: any) {
+      console.error('⚠️ [MongoDB Connection Warning] Could not connect to MongoDB Atlas:', mongoErr?.message || mongoErr);
+      console.warn('   Continuing with local fallback storage until MONGODB_URI is reachable.');
+      isMongoConnected = false;
+    }
+  } else {
+    console.warn(
+      '\n⚠️  [MongoDB Setup Notice]\n' +
+      '   MONGODB_URI environment variable is not configured.\n' +
+      '   The app will run with file/memory storage.\n' +
+      '   To connect MongoDB Atlas permanently: set MONGODB_URI in your .env or Render Dashboard.\n'
+    );
+  }
+
+  mongoose.connection.on('connected', () => {
+    isMongoConnected = true;
+    console.log('🍃 MongoDB Atlas Connection state: CONNECTED');
+  });
+
+  mongoose.connection.on('error', (err) => {
+    console.error('🍃 MongoDB Connection Error:', err);
+    isMongoConnected = false;
+  });
+
+  mongoose.connection.on('disconnected', () => {
+    isMongoConnected = false;
+    console.warn('🍃 MongoDB Atlas Disconnected.');
+  });
 
   // Connection-pooled Nodemailer Transporter (Singleton)
   let cachedTransporter: nodemailer.Transporter | null = null;
@@ -175,10 +523,6 @@ async function startServer() {
   function getEmailTransporter(user: string, pass: string): nodemailer.Transporter {
     if (!cachedTransporter) {
       cachedTransporter = nodemailer.createTransport({
-        // ✅ FIXED: Use explicit host/port instead of the 'gmail' service shorthand,
-        // and force IPv4 (`family: 4`). Render's outbound network could not route
-        // Gmail's IPv6 SMTP address (2404:6800:...), causing every attempt to fail
-        // with ENETUNREACH before timing out. Forcing IPv4 avoids that dead route.
         host: 'smtp.gmail.com',
         port: 465,
         secure: true,
@@ -188,24 +532,24 @@ async function startServer() {
         maxMessages: 100,
         rateDelta: 1000,
         rateLimit: 5,
-        auth: {
-          user,
-          pass,
-        },
-        connectionTimeout: 10000, // 10 second connection timeout for SMTP handshake
+        auth: { user, pass },
+        connectionTimeout: 10000,
         socketTimeout: 10000,
-      });
+      } as any);
     }
     return cachedTransporter;
   }
 
-  // Helper function to dispatch OTP via Email with connection pooling, direct API, and retries
-  async function sendOtpViaEmail(email: string, otp: string, maxAttempts = 2): Promise<{ success: boolean; provider: string; error?: string; devOtp?: string }> {
+  // Helper function to dispatch OTP via Email
+  async function sendOtpViaEmail(
+    email: string,
+    otp: string,
+    maxAttempts = 2
+  ): Promise<{ success: boolean; provider: string; error?: string; devOtp?: string }> {
     const gmailUser = process.env.GMAIL_USER?.trim();
     const gmailPass = process.env.GMAIL_APP_PASSWORD?.trim();
     const resendApiKey = process.env.RESEND_API_KEY?.trim();
 
-    // Check if any email delivery credentials are configured
     if (!gmailUser && !gmailPass && !resendApiKey) {
       console.log(`[Email Service Notice] No SMTP credentials set. Verification OTP for ${email} is: ${otp}.`);
       return {
@@ -232,13 +576,13 @@ async function startServer() {
 
     let lastError = '';
 
-    // 1. Try Resend Direct REST API if key is present
+    // 1. Try Resend Direct REST API
     if (resendApiKey) {
       try {
         const response = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
+            Authorization: `Bearer ${resendApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -261,7 +605,7 @@ async function startServer() {
       }
     }
 
-    // 2. Try Pooled Gmail SMTP with auto-retry logic
+    // 2. Try Pooled Gmail SMTP
     if (gmailUser && gmailPass) {
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
@@ -286,8 +630,6 @@ async function startServer() {
       }
     }
 
-    // Fallback: If live delivery failed due to missing/invalid SMTP credentials or network egress restrictions,
-    // still return success with the devOtp so the user is never blocked!
     console.log(`[Email Fallback Notice] Verification OTP for ${email} is: ${otp}. Reason: ${lastError || 'No SMTP setup'}`);
     return {
       success: true,
@@ -297,114 +639,37 @@ async function startServer() {
     };
   }
 
-  // ✅ HEALTH CHECK ENDPOINT (for Render monitoring)
-  app.get('/api/health', (req, res) => {
-    res.json({
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      environment: NODE_ENV,
-      uptime: process.uptime(),
-      persistentDisk: usingPersistentDisk,
-      dataDir: DATA_DIR,
-    });
-  });
+  // Helper to normalize banner object fields
+  function normalizeBanner(b: any): Banner {
+    const img = b.image || b.imageUrl || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=1200';
+    const tag = b.discountBadge || b.discountTag || 'SPECIAL OFFER';
+    return {
+      id: b.id || `b-${Date.now()}`,
+      title: b.title || 'Royal Jewellery Collection',
+      subtitle: b.subtitle || 'Exclusive Festival Offer',
+      image: img,
+      imageUrl: img,
+      discountBadge: tag,
+      discountTag: tag,
+      ctaText: b.ctaText || 'Explore Collection',
+      categoryLink: b.categoryLink || 'Gold',
+    };
+  }
 
-  // API Routes
-  // 1. Live Gold Rates
-  app.get('/api/rates', (req, res) => {
-    res.json({ success: true, rates: currentRates });
-  });
-
-  app.post('/api/admin/rates', (req, res) => {
-    const { gold24k, gold22k, gold18k, silver } = req.body;
-    if (gold24k) currentRates.gold24k = Number(gold24k);
-    if (gold22k) currentRates.gold22k = Number(gold22k);
-    if (gold18k) currentRates.gold18k = Number(gold18k);
-    if (silver) currentRates.silver = Number(silver);
-    currentRates.lastUpdated = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    saveData('rates.json', currentRates);
-    res.json({ success: true, rates: currentRates, message: 'Live gold & silver rates updated successfully!' });
-  });
-
-  // 2. Products Catalog
-  app.get('/api/products', (req, res) => {
-    res.json({ success: true, products: currentProducts });
-  });
-
-  app.post('/api/admin/products', (req, res) => {
-    const productData = req.body as Partial<Product>;
-    if (productData.id) {
-      // Update existing product
-      const index = currentProducts.findIndex((p) => p.id === productData.id);
-      if (index !== -1) {
-        currentProducts[index] = { ...currentProducts[index], ...productData } as Product;
-      } else {
-        // If product ID didn't exist in currentProducts array, add as new product
-        const newProduct: Product = {
-          id: productData.id,
-          title: productData.title || 'New Royal Gold Jewellery',
-          category: productData.category || 'Gold',
-          purity: productData.purity || '22K',
-          weightGrams: Number(productData.weightGrams) || 10,
-          makingChargePercent: Number(productData.makingChargePercent) || 12,
-          baseMakingCharge: Number(productData.baseMakingCharge) || 250,
-          image: productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
-          gallery: productData.gallery && productData.gallery.length > 0 ? productData.gallery : [productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80'],
-          description: productData.description || 'Authentic BIS Hallmarked Gold piece.',
-          gender: productData.gender || 'Women',
-          collection: productData.collection || 'Daily Wear',
-          isNewArrival: productData.isNewArrival ?? true,
-          isFeatured: productData.isFeatured ?? true,
-          inStock: productData.inStock ?? true,
-          hallmarkCertified: true,
-        };
-        currentProducts.unshift(newProduct);
-      }
-    } else {
-      // Create new product
-      const newProduct: Product = {
-        id: `sj-${Date.now()}`,
-        title: productData.title || 'New Royal Gold Jewellery',
-        category: productData.category || 'Gold',
-        purity: productData.purity || '22K',
-        weightGrams: Number(productData.weightGrams) || 10,
-        makingChargePercent: Number(productData.makingChargePercent) || 12,
-        baseMakingCharge: Number(productData.baseMakingCharge) || 250,
-        image: productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
-        gallery: productData.gallery && productData.gallery.length > 0 ? productData.gallery : [productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80'],
-        description: productData.description || 'Authentic BIS Hallmarked Gold piece.',
-        gender: productData.gender || 'Women',
-        collection: productData.collection || 'Daily Wear',
-        isNewArrival: productData.isNewArrival ?? true,
-        isFeatured: productData.isFeatured ?? true,
-        inStock: productData.inStock ?? true,
-        hallmarkCertified: true,
-      };
-      currentProducts.unshift(newProduct);
-    }
-    saveData('products.json', currentProducts);
-    res.json({ success: true, products: currentProducts, message: 'Product catalog updated!' });
-  });
-
-  app.delete('/api/admin/products/:id', (req, res) => {
-    const { id } = req.params;
-    currentProducts = currentProducts.filter((p) => p.id !== id);
-    const deletedProductIds = loadData<string[]>('deleted-products.json', []);
-    if (!deletedProductIds.includes(id)) {
-      deletedProductIds.push(id);
-      saveData('deleted-products.json', deletedProductIds);
-    }
-    saveData('products.json', currentProducts);
-    res.json({ success: true, products: currentProducts });
-  });
-
-  // Helper to categorize a product strictly into a specific jewelry category
+  // Helper to categorize a product
   function getProductSpecificCategory(p: Product): string {
     const title = (p.title || '').toLowerCase();
     const cat = (p.category || '').toLowerCase();
     const desc = (p.description || '').toLowerCase();
 
-    if (title.includes('necklace') || title.includes('kundan') || title.includes('pendant') || title.includes('choker') || title.includes('mangalsutra') || desc.includes('necklace')) {
+    if (
+      title.includes('necklace') ||
+      title.includes('kundan') ||
+      title.includes('pendant') ||
+      title.includes('choker') ||
+      title.includes('mangalsutra') ||
+      desc.includes('necklace')
+    ) {
       return 'Necklace';
     }
     if (title.includes('ring') || title.includes('solitaire') || cat.includes('solitaire') || desc.includes('ring')) {
@@ -425,7 +690,6 @@ async function startServer() {
     return 'Jewellery';
   }
 
-  // Helper to check if a product belongs strictly to a target category
   function isProductInTargetCategory(p: Product, targetCategory: string): boolean {
     const pCat = getProductSpecificCategory(p);
     if (pCat === targetCategory) return true;
@@ -436,7 +700,13 @@ async function startServer() {
     const desc = (p.description || '').toLowerCase();
 
     if (catLower === 'necklace') {
-      return title.includes('necklace') || title.includes('pendant') || title.includes('choker') || title.includes('kundan') || desc.includes('necklace');
+      return (
+        title.includes('necklace') ||
+        title.includes('pendant') ||
+        title.includes('choker') ||
+        title.includes('kundan') ||
+        desc.includes('necklace')
+      );
     }
     if (catLower === 'ring') {
       return title.includes('ring') || desc.includes('ring') || cat.includes('solitaire');
@@ -456,6 +726,153 @@ async function startServer() {
     return false;
   }
 
+  // ✅ HEALTH CHECK ENDPOINT
+  app.get('/api/health', (req, res) => {
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: NODE_ENV,
+      uptime: process.uptime(),
+      database: isMongoConnected ? 'MongoDB Atlas (Connected)' : (mongoUri ? 'MongoDB Atlas (Connecting/Offline)' : 'Local JSON Storage'),
+      mongoConnected: isMongoConnected,
+      persistentDisk: usingPersistentDisk,
+      dataDir: DATA_DIR,
+    });
+  });
+
+  /* ==========================================================================
+     API ROUTES (MONGODB ATLAS WITH GRACEFUL FALLBACK)
+     ========================================================================== */
+
+  // 1. Live Gold Rates
+  app.get('/api/rates', async (req, res) => {
+    try {
+      if (isMongoConnected) {
+        const rates = await RatesModel.findOne().lean();
+        if (rates) {
+          res.json({ success: true, rates });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB Rates GET Error]:', e);
+    }
+    res.json({ success: true, rates: currentRates });
+  });
+
+  app.post('/api/admin/rates', async (req, res) => {
+    const { gold24k, gold22k, gold18k, silver } = req.body;
+    const updateObj: Partial<GoldRates> = {
+      lastUpdated: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+    };
+    if (gold24k) updateObj.gold24k = Number(gold24k);
+    if (gold22k) updateObj.gold22k = Number(gold22k);
+    if (gold18k) updateObj.gold18k = Number(gold18k);
+    if (silver) updateObj.silver = Number(silver);
+
+    try {
+      if (isMongoConnected) {
+        const updated = await RatesModel.findOneAndUpdate({}, updateObj, { upsert: true, new: true }).lean();
+        if (updated) {
+          currentRates = { ...currentRates, ...updated };
+          saveData('rates.json', currentRates);
+          res.json({ success: true, rates: updated, message: 'Live gold & silver rates updated in MongoDB!' });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB Rates POST Error]:', e);
+    }
+
+    currentRates = { ...currentRates, ...updateObj } as GoldRates;
+    saveData('rates.json', currentRates);
+    res.json({ success: true, rates: currentRates, message: 'Live gold & silver rates updated!' });
+  });
+
+  // 2. Products Catalog
+  app.get('/api/products', async (req, res) => {
+    try {
+      if (isMongoConnected) {
+        const products = await ProductModel.find().lean();
+        if (products && products.length > 0) {
+          res.json({ success: true, products });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB Products GET Error]:', e);
+    }
+    res.json({ success: true, products: currentProducts });
+  });
+
+  app.post('/api/admin/products', async (req, res) => {
+    const productData = req.body as Partial<Product>;
+    const targetId = productData.id || `sj-${Date.now()}`;
+    const newProduct: Product = {
+      id: targetId,
+      title: productData.title || 'New Royal Gold Jewellery',
+      category: productData.category || 'Gold',
+      purity: productData.purity || '22K',
+      weightGrams: Number(productData.weightGrams) || 10,
+      makingChargePercent: Number(productData.makingChargePercent) || 12,
+      baseMakingCharge: Number(productData.baseMakingCharge) || 250,
+      image: productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
+      gallery:
+        productData.gallery && productData.gallery.length > 0
+          ? productData.gallery
+          : [productData.image || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80'],
+      description: productData.description || 'Authentic BIS Hallmarked Gold piece.',
+      gender: productData.gender || 'Women',
+      collection: productData.collection || 'Daily Wear',
+      isNewArrival: productData.isNewArrival ?? true,
+      isFeatured: productData.isFeatured ?? true,
+      inStock: productData.inStock ?? true,
+      hallmarkCertified: true,
+    };
+
+    try {
+      if (isMongoConnected) {
+        await ProductModel.findOneAndUpdate({ id: targetId }, newProduct, { upsert: true, new: true });
+        const allProducts = await ProductModel.find().lean();
+        currentProducts = allProducts as Product[];
+        saveData('products.json', currentProducts);
+        res.json({ success: true, products: allProducts, message: 'Product catalog updated in MongoDB!' });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Product POST Error]:', e);
+    }
+
+    const idx = currentProducts.findIndex((p) => p.id === targetId);
+    if (idx !== -1) {
+      currentProducts[idx] = newProduct;
+    } else {
+      currentProducts.unshift(newProduct);
+    }
+    saveData('products.json', currentProducts);
+    res.json({ success: true, products: currentProducts, message: 'Product catalog updated!' });
+  });
+
+  app.delete('/api/admin/products/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+      if (isMongoConnected) {
+        await ProductModel.deleteOne({ id });
+        const allProducts = await ProductModel.find().lean();
+        currentProducts = allProducts as Product[];
+        saveData('products.json', currentProducts);
+        res.json({ success: true, products: allProducts, message: 'Product deleted from MongoDB' });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Product DELETE Error]:', e);
+    }
+
+    currentProducts = currentProducts.filter((p) => p.id !== id);
+    saveData('products.json', currentProducts);
+    res.json({ success: true, products: currentProducts, message: 'Product deleted' });
+  });
+
   // 2.1 Visual Image Search API
   app.post('/api/visual-search', async (req, res) => {
     try {
@@ -473,10 +890,21 @@ async function startServer() {
         return;
       }
 
+      // Fetch active catalog products (from MongoDB if connected)
+      let catalogProducts = currentProducts;
+      if (isMongoConnected) {
+        try {
+          const dbProducts = await ProductModel.find().lean();
+          if (dbProducts && dbProducts.length > 0) {
+            catalogProducts = dbProducts as Product[];
+          }
+        } catch (e) {}
+      }
+
       const lowerUrl = imageUrl.toLowerCase();
 
       // 1. Check exact match against catalog product images
-      const exactProduct = currentProducts.find(
+      const exactProduct = catalogProducts.find(
         (p) => p.image === imageUrl || (p.gallery && p.gallery.includes(imageUrl))
       );
 
@@ -485,15 +913,14 @@ async function startServer() {
       if (exactProduct) {
         detectedCategory = getProductSpecificCategory(exactProduct);
       } else {
-        // 2. Multimodal Gemini AI Visual Classifier if base64 data or URL + API key is present
+        // 2. Multimodal Gemini AI Visual Classifier
         if (process.env.GEMINI_API_KEY) {
           try {
             const { GoogleGenAI } = await import('@google/genai');
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-            
+
             let contents: any = null;
             if (imageUrl.startsWith('data:image/')) {
-              // Extract base64 mime type and data payload
               const matches = imageUrl.match(/^data:(image\/[^;]+);base64,(.+)$/s);
               if (matches && matches[1] && matches[2]) {
                 contents = [
@@ -527,9 +954,16 @@ async function startServer() {
           }
         }
 
-        // 3. Fallback keyword matching on image URL / filename string
+        // 3. Fallback keyword matching
         if (!detectedCategory) {
-          if (lowerUrl.includes('necklace') || lowerUrl.includes('1599643478518') || lowerUrl.includes('kundan') || lowerUrl.includes('pendant') || lowerUrl.includes('choker') || lowerUrl.includes('har')) {
+          if (
+            lowerUrl.includes('necklace') ||
+            lowerUrl.includes('1599643478518') ||
+            lowerUrl.includes('kundan') ||
+            lowerUrl.includes('pendant') ||
+            lowerUrl.includes('choker') ||
+            lowerUrl.includes('har')
+          ) {
             detectedCategory = 'Necklace';
           } else if (lowerUrl.includes('ring') || lowerUrl.includes('1605100804763') || lowerUrl.includes('solitaire') || lowerUrl.includes('band')) {
             detectedCategory = 'Ring';
@@ -545,12 +979,10 @@ async function startServer() {
         }
       }
 
-      // 4. Strict same-category in-stock inventory lookup
+      // 4. In-stock inventory lookup
       if (detectedCategory) {
-        // Get all in-stock products strictly matching detectedCategory
-        let matchingInStock = currentProducts.filter((p) => p.inStock && isProductInTargetCategory(p, detectedCategory));
+        let matchingInStock = catalogProducts.filter((p) => p.inStock && isProductInTargetCategory(p, detectedCategory!));
 
-        // If exactProduct exists and is in matchingInStock, rank it FIRST at index 0
         if (exactProduct && exactProduct.inStock) {
           matchingInStock = matchingInStock.filter((p) => p.id !== exactProduct.id);
           matchingInStock.unshift(exactProduct);
@@ -570,7 +1002,6 @@ async function startServer() {
         }
       }
 
-      // 5. If category missing or no in-stock products match: return empty matchedProducts with 'No Stock Item'
       res.json({
         success: true,
         exactMatch: false,
@@ -582,7 +1013,6 @@ async function startServer() {
       });
     } catch (err: any) {
       console.error('[Visual Search API Error]:', err);
-      // Graceful error response without server crash or random fallback
       res.json({
         success: true,
         exactMatch: false,
@@ -596,14 +1026,13 @@ async function startServer() {
     }
   });
 
-  // Admin PIN Rate Limiting & Lockout Memory Store
+  // Admin PIN Rate Limiting
   interface AdminLockoutState {
     attempts: number;
     lockoutUntil: number;
   }
   const adminAttemptsMap = new Map<string, AdminLockoutState>();
 
-  // Admin PIN Verification with 3-Attempt Lockout
   app.post('/api/admin/verify-pin', (req, res) => {
     const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'global';
     const { pin } = req.body;
@@ -622,7 +1051,16 @@ async function startServer() {
       return;
     }
 
-    const expectedPin = process.env.ADMIN_PIN || '7788';
+    const expectedPin = process.env.ADMIN_PIN?.trim();
+
+    if (!expectedPin) {
+      console.error('[Admin Auth Rejected]: ADMIN_PIN environment variable is not configured on the server.');
+      res.status(503).json({
+        success: false,
+        message: 'Admin authentication is currently disabled: ADMIN_PIN environment variable is not configured on the server.',
+      });
+      return;
+    }
 
     if (pin && String(pin).trim() === expectedPin) {
       adminAttemptsMap.delete(clientIp);
@@ -630,7 +1068,7 @@ async function startServer() {
     } else {
       const newAttempts = currentState.attempts + 1;
       if (newAttempts >= 3) {
-        const lockoutUntil = now + 60 * 1000; // 60 seconds lockout
+        const lockoutUntil = now + 60 * 1000;
         adminAttemptsMap.set(clientIp, { attempts: 0, lockoutUntil });
         res.status(429).json({
           success: false,
@@ -650,31 +1088,43 @@ async function startServer() {
     }
   });
 
-  // Helper to normalize banner object fields
-  function normalizeBanner(b: Banner): Banner {
-    const img = b.image || b.imageUrl || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=1200';
-    const tag = b.discountBadge || b.discountTag || 'SPECIAL OFFER';
-    return {
-      ...b,
-      image: img,
-      imageUrl: img,
-      discountBadge: tag,
-      discountTag: tag,
-    };
-  }
-
   // 3. Banners
-  app.get('/api/banners', (req, res) => {
+  app.get('/api/banners', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    try {
+      if (isMongoConnected) {
+        const banners = await BannerModel.find().lean();
+        if (banners && banners.length > 0) {
+          res.json({ success: true, banners: banners.map(normalizeBanner) });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB Banners GET Error]:', e);
+    }
     res.json({ success: true, banners: currentBanners.map(normalizeBanner) });
   });
 
-  app.post('/api/admin/banners', (req, res) => {
+  app.post('/api/admin/banners', async (req, res) => {
     const rawBanner = req.body as Banner;
     const newBanner = normalizeBanner({
       ...rawBanner,
       id: rawBanner.id || `b-${Date.now()}`,
     });
+
+    try {
+      if (isMongoConnected) {
+        await BannerModel.findOneAndUpdate({ id: newBanner.id }, newBanner, { upsert: true, new: true });
+        const allBanners = await BannerModel.find().lean();
+        currentBanners = allBanners.map(normalizeBanner);
+        saveData('banners.json', currentBanners);
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.json({ success: true, banners: currentBanners, message: 'Banner saved to MongoDB!' });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Banner POST Error]:', e);
+    }
 
     const idx = currentBanners.findIndex((b) => b.id === newBanner.id);
     if (idx !== -1) {
@@ -682,29 +1132,67 @@ async function startServer() {
     } else {
       currentBanners.push(newBanner);
     }
-
     saveData('banners.json', currentBanners);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({ success: true, banners: currentBanners, message: 'Banner saved successfully!' });
   });
 
-  app.delete('/api/admin/banners/:id', (req, res) => {
+  app.delete('/api/admin/banners/:id', async (req, res) => {
     const { id } = req.params;
+    try {
+      if (isMongoConnected) {
+        await BannerModel.deleteOne({ id });
+        const allBanners = await BannerModel.find().lean();
+        currentBanners = allBanners.map(normalizeBanner);
+        saveData('banners.json', currentBanners);
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.json({ success: true, banners: currentBanners, message: 'Banner removed from MongoDB' });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Banner DELETE Error]:', e);
+    }
+
     currentBanners = currentBanners.filter((b) => b.id !== id);
     saveData('banners.json', currentBanners);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({ success: true, banners: currentBanners, message: 'Banner removed successfully' });
   });
 
-  // 3.5 Categories Partitions
-  app.get('/api/categories', (req, res) => {
+  // 3.5 Categories
+  app.get('/api/categories', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    try {
+      if (isMongoConnected) {
+        const categories = await CategoryModel.find().sort({ order: 1 }).lean();
+        if (categories && categories.length > 0) {
+          res.json({ success: true, categories });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB Categories GET Error]:', e);
+    }
     res.json({ success: true, categories: currentCategories });
   });
 
-  app.post('/api/admin/categories', (req, res) => {
+  app.post('/api/admin/categories', async (req, res) => {
     const { categories } = req.body;
     if (Array.isArray(categories)) {
+      try {
+        if (isMongoConnected) {
+          await CategoryModel.deleteMany({});
+          await CategoryModel.insertMany(categories);
+          const allCats = await CategoryModel.find().sort({ order: 1 }).lean();
+          currentCategories = allCats as CategoryItem[];
+          saveData('categories.json', currentCategories);
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+          res.json({ success: true, categories: allCats, message: 'Categories updated in MongoDB!' });
+          return;
+        }
+      } catch (e) {
+        console.error('[MongoDB Categories POST Error]:', e);
+      }
       currentCategories = categories;
       saveData('categories.json', currentCategories);
     }
@@ -713,59 +1201,129 @@ async function startServer() {
   });
 
   // 3.8 Bottom Banner
-  app.get('/api/bottom-banner', (req, res) => {
+  app.get('/api/bottom-banner', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    try {
+      if (isMongoConnected) {
+        const banner = await BottomBannerModel.findOne().lean();
+        if (banner) {
+          res.json({ success: true, bottomBanner: banner });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB Bottom Banner GET Error]:', e);
+    }
     res.json({ success: true, bottomBanner: currentBottomBanner });
   });
 
-  app.post('/api/admin/bottom-banner', (req, res) => {
+  app.post('/api/admin/bottom-banner', async (req, res) => {
     const rawBanner = req.body as BottomBanner;
-    currentBottomBanner = {
-      ...currentBottomBanner,
-      ...rawBanner,
-    };
+    try {
+      if (isMongoConnected) {
+        const updated = await BottomBannerModel.findOneAndUpdate({}, rawBanner, { upsert: true, new: true }).lean();
+        currentBottomBanner = updated as BottomBanner;
+        saveData('bottom-banner.json', currentBottomBanner);
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.json({ success: true, bottomBanner: updated, message: 'Bottom banner updated in MongoDB!' });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Bottom Banner POST Error]:', e);
+    }
+
+    currentBottomBanner = { ...currentBottomBanner, ...rawBanner };
     saveData('bottom-banner.json', currentBottomBanner);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({ success: true, bottomBanner: currentBottomBanner, message: 'Bottom banner updated successfully!' });
   });
 
-  // 3.9 Hamburger Drawer Dashboard Configuration
-  app.get('/api/drawer-config', (req, res) => {
+  // 3.9 Hamburger Drawer Config
+  app.get('/api/drawer-config', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    try {
+      if (isMongoConnected) {
+        const config = await DrawerConfigModel.findOne().lean();
+        if (config) {
+          res.json({ success: true, drawerConfig: config });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB Drawer Config GET Error]:', e);
+    }
     res.json({ success: true, drawerConfig: currentDrawerConfig });
   });
 
-  app.post('/api/admin/drawer-config', (req, res) => {
+  app.post('/api/admin/drawer-config', async (req, res) => {
     const rawConfig = req.body as Partial<DrawerConfig>;
-    currentDrawerConfig = {
-      ...currentDrawerConfig,
-      ...rawConfig,
-    };
+    try {
+      if (isMongoConnected) {
+        const updated = await DrawerConfigModel.findOneAndUpdate({}, rawConfig, { upsert: true, new: true }).lean();
+        currentDrawerConfig = updated as DrawerConfig;
+        saveData('drawer-config.json', currentDrawerConfig);
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.json({ success: true, drawerConfig: updated, message: 'Hamburger menu updated in MongoDB!' });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Drawer Config POST Error]:', e);
+    }
+
+    currentDrawerConfig = { ...currentDrawerConfig, ...rawConfig } as DrawerConfig;
     saveData('drawer-config.json', currentDrawerConfig);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({ success: true, drawerConfig: currentDrawerConfig, message: 'Hamburger menu updated successfully!' });
   });
 
   // 3.10 Footer Configuration
-  app.get('/api/footer-config', (req, res) => {
+  app.get('/api/footer-config', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    try {
+      if (isMongoConnected) {
+        const config = await FooterConfigModel.findOne().lean();
+        if (config) {
+          res.json({ success: true, footerConfig: config });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB Footer Config GET Error]:', e);
+    }
     res.json({ success: true, footerConfig: currentFooterConfig });
   });
 
-  app.post('/api/admin/footer-config', (req, res) => {
+  app.post('/api/admin/footer-config', async (req, res) => {
     const rawConfig = req.body as Partial<FooterConfig>;
-    currentFooterConfig = {
-      ...currentFooterConfig,
-      ...rawConfig,
-    };
+    try {
+      if (isMongoConnected) {
+        const updated = await FooterConfigModel.findOneAndUpdate({}, rawConfig, { upsert: true, new: true }).lean();
+        currentFooterConfig = updated as FooterConfig;
+        saveData('footer-config.json', currentFooterConfig);
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.json({ success: true, footerConfig: updated, message: 'Footer configuration updated in MongoDB!' });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Footer Config POST Error]:', e);
+    }
+
+    currentFooterConfig = { ...currentFooterConfig, ...rawConfig } as FooterConfig;
     saveData('footer-config.json', currentFooterConfig);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({ success: true, footerConfig: currentFooterConfig, message: 'Footer configuration updated successfully!' });
   });
 
-  // 4. OTP Auth
+  // 4. OTP Auth & Rate Limiting
+  interface OtpRateLimitState {
+    lastRequestTime: number;
+    hourlyRequests: number[];
+  }
+  const otpRateLimitMap = new Map<string, OtpRateLimitState>();
+
   app.post('/api/auth/send-otp', async (req, res) => {
     try {
+      const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'global';
       const { email } = req.body;
       const cleanEmail = email ? String(email).trim().toLowerCase() : '';
 
@@ -774,14 +1332,47 @@ async function startServer() {
         return;
       }
 
-      // ✅ NEW: "No email found" check — verify the email's domain actually has
-      // mail servers configured (MX records) before sending an OTP. This catches
-      // typos and fake/non-existent domains (e.g. "user@gmial.com" or made-up
-      // domains) so the person sees a clear error instead of a silently-issued
-      // OTP that could never be delivered. Note: this checks the DOMAIN can
-      // receive mail, not that the exact mailbox exists — full mailbox-level
-      // verification would need SMTP probing, which most providers block/throttle
-      // and is unreliable, so a domain-level check is the practical standard here.
+      const now = Date.now();
+      const COOLDOWN_MS = 60 * 1000; // 60 seconds cooldown between successive requests
+      const HOURLY_WINDOW_MS = 60 * 60 * 1000; // 1 hour window
+      const MAX_HOURLY_REQUESTS = 5; // Max 5 requests per hour
+
+      // Check rate limit for both email and IP
+      const rateLimitKeys = [cleanEmail, clientIp];
+      for (const key of rateLimitKeys) {
+        const state = otpRateLimitMap.get(key) || { lastRequestTime: 0, hourlyRequests: [] };
+
+        // 1. 60-second cooldown check
+        const timeSinceLast = now - state.lastRequestTime;
+        if (state.lastRequestTime > 0 && timeSinceLast < COOLDOWN_MS) {
+          const remainingSeconds = Math.ceil((COOLDOWN_MS - timeSinceLast) / 1000);
+          res.status(429).json({
+            success: false,
+            message: `Please wait ${remainingSeconds} second${remainingSeconds > 1 ? 's' : ''} before requesting another code.`,
+            lockout: true,
+            remainingSeconds,
+          });
+          return;
+        }
+
+        // 2. Filter requests within the last 1 hour
+        const recentHourlyRequests = state.hourlyRequests.filter((timestamp) => now - timestamp < HOURLY_WINDOW_MS);
+
+        // 3. Max 5 requests per hour check
+        if (recentHourlyRequests.length >= MAX_HOURLY_REQUESTS) {
+          const oldestRequest = recentHourlyRequests[0];
+          const resetInMinutes = Math.ceil((HOURLY_WINDOW_MS - (now - oldestRequest)) / (60 * 1000));
+          res.status(429).json({
+            success: false,
+            message: `Too many requests, try again later. Maximum 5 OTP requests allowed per hour. Try again in ~${resetInMinutes} minute${resetInMinutes > 1 ? 's' : ''}.`,
+            lockout: true,
+            resetInMinutes,
+          });
+          return;
+        }
+      }
+
+      // Domain MX verification
       const domain = cleanEmail.split('@')[1] || '';
       const domainHasMailServer = await new Promise<boolean>((resolve) => {
         dns.resolveMx(domain, (err, addresses) => {
@@ -790,10 +1381,6 @@ async function startServer() {
       });
 
       if (!domainHasMailServer) {
-        // Use 200 (not 404/400) so the frontend's safeFetchJson helper — which
-        // treats any non-2xx response as a network failure and discards the
-        // body — actually receives this specific error instead of silently
-        // falling back to a demo OTP.
         res.status(200).json({
           success: false,
           code: 'EMAIL_NOT_FOUND',
@@ -802,11 +1389,20 @@ async function startServer() {
         return;
       }
 
-      // Generate secure 4-digit verification code
       const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
       otpStore[cleanEmail] = generatedOtp;
 
-      // Await email dispatch so SMTP connection completes before container HTTP cycle finishes
+      // Update rate limit state for both email and IP
+      for (const key of rateLimitKeys) {
+        const state = otpRateLimitMap.get(key) || { lastRequestTime: 0, hourlyRequests: [] };
+        const updatedHourly = state.hourlyRequests.filter((timestamp) => now - timestamp < HOURLY_WINDOW_MS);
+        updatedHourly.push(now);
+        otpRateLimitMap.set(key, {
+          lastRequestTime: now,
+          hourlyRequests: updatedHourly,
+        });
+      }
+
       const emailResult = await sendOtpViaEmail(cleanEmail, generatedOtp);
 
       if (!emailResult.success) {
@@ -820,12 +1416,6 @@ async function startServer() {
 
       console.log(`[Email OTP Success] Verification code ${generatedOtp} dispatched to ${cleanEmail} via ${emailResult.provider}`);
 
-      // ✅ FIXED: Only include the OTP in the API response when we genuinely
-      // could NOT deliver it by email (emailResult.devOtp is only set by the
-      // fallback path in sendOtpViaEmail). When real delivery via Gmail SMTP
-      // or Resend succeeds, the OTP must stay server-side only — otherwise
-      // the frontend was showing it on-screen every single time, even on a
-      // successful send, defeating the purpose of email verification.
       const responsePayload: {
         success: true;
         email: string;
@@ -859,11 +1449,10 @@ async function startServer() {
     const cleanOtp = String(otp || '').trim();
     const storedOtp = otpStore[cleanEmail];
 
-    // Verify against active OTP or instant fallback passcodes
-    const isValid = (storedOtp && cleanOtp === storedOtp) || cleanOtp === '7788' || cleanOtp === '1234';
+    // Strictly match the stored generated OTP (no hardcoded backdoors or bypass codes)
+    const isValid = Boolean(storedOtp && cleanOtp === storedOtp);
 
     if (isValid) {
-      // Clear OTP once used
       delete otpStore[cleanEmail];
       const emailPrefix = cleanEmail.split('@')[0] || 'Customer';
       const defaultDerivedName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
@@ -872,7 +1461,7 @@ async function startServer() {
         success: true,
         profile: {
           email: cleanEmail,
-          name: (name && name.trim()) ? name.trim() : defaultDerivedName,
+          name: name && name.trim() ? name.trim() : defaultDerivedName,
           address: address || {
             street: 'MG Road, Royal Palace Area',
             city: 'Mumbai',
@@ -883,16 +1472,67 @@ async function startServer() {
         },
       });
     } else {
-      res.status(400).json({ success: false, message: 'Invalid OTP code. Please enter the 4-digit code shown or use 7788.' });
+      res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP code. Please enter the 4-digit code sent to your email.',
+      });
     }
   });
 
-  // 5. Gold Savings Scheme
-  app.get('/api/scheme/:email', (req, res) => {
+  // 5. Gold Savings Scheme & Razorpay Payment Gateway
+  app.get('/api/scheme/payment-config', (req, res) => {
+    const keyId = process.env.RAZORPAY_KEY_ID?.trim();
+    const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
+    const isConfigured = Boolean(keyId && keySecret);
+
+    res.json({
+      success: true,
+      isConfigured,
+      keyId: keyId || null,
+      mode: isConfigured ? 'live' : 'demo',
+      message: isConfigured
+        ? 'Razorpay Live Gateway Active'
+        : 'Demo Mode: Razorpay API keys not configured. Simulating payment confirmation.',
+    });
+  });
+
+  app.get('/api/scheme/:email', async (req, res) => {
     const email = decodeURIComponent(req.params.email).toLowerCase();
+    try {
+      if (isMongoConnected) {
+        let scheme = await GoldSchemeModel.findOne({ email }).lean();
+        if (!scheme) {
+          scheme = (await GoldSchemeModel.create({
+            id: `SCH-${Math.floor(10000 + Math.random() * 90000)}`,
+            email,
+            schemeName: 'Shubham Swarna Varsha Plan',
+            monthlyInstallment: 3000,
+            totalMonths: 11,
+            monthsPaid: 1,
+            totalPaid: 3000,
+            bonusDiscount: 3000,
+            nextDueDate: '10th of Next Month',
+            history: [
+              {
+                month: 1,
+                amount: 3000,
+                date: new Date().toISOString().split('T')[0],
+                status: 'Paid',
+                transactionId: `TXN${Math.floor(10000 + Math.random() * 90000)}`,
+              },
+              { month: 2, amount: 3000, date: 'Pending', status: 'Pending' },
+            ],
+          })) as any;
+        }
+        res.json({ success: true, scheme });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Scheme GET Error]:', e);
+    }
+
     let scheme = schemes[email];
     if (!scheme) {
-      // Create a default new scheme for user
       scheme = {
         id: `SCH-${Math.floor(10000 + Math.random() * 90000)}`,
         email,
@@ -904,7 +1544,13 @@ async function startServer() {
         bonusDiscount: 3000,
         nextDueDate: '10th of Next Month',
         history: [
-          { month: 1, amount: 3000, date: new Date().toISOString().split('T')[0], status: 'Paid', transactionId: `TXN${Math.floor(10000 + Math.random() * 90000)}` },
+          {
+            month: 1,
+            amount: 3000,
+            date: new Date().toISOString().split('T')[0],
+            status: 'Paid',
+            transactionId: `TXN${Math.floor(10000 + Math.random() * 90000)}`,
+          },
           { month: 2, amount: 3000, date: 'Pending', status: 'Pending' },
         ],
       };
@@ -914,20 +1560,223 @@ async function startServer() {
     res.json({ success: true, scheme });
   });
 
-  app.post('/api/scheme/pay', (req, res) => {
+  // Create Razorpay Order
+  app.post('/api/scheme/create-order', async (req, res) => {
+    try {
+      const { email, amount } = req.body;
+      const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+      const amtNumber = Math.max(100, Number(amount) || 3000);
+      const amountInPaise = Math.round(amtNumber * 100);
+
+      const rzp = getRazorpay();
+      const keyId = process.env.RAZORPAY_KEY_ID?.trim();
+
+      if (rzp && keyId) {
+        const order = await rzp.orders.create({
+          amount: amountInPaise,
+          currency: 'INR',
+          receipt: `SCHEME_${Date.now()}`,
+          notes: {
+            email: cleanEmail,
+            purpose: 'Shubham Swarna Varsha Gold Savings Scheme',
+          },
+        });
+
+        res.json({
+          success: true,
+          mode: 'razorpay',
+          orderId: order.id,
+          amount: order.amount,
+          currency: order.currency,
+          keyId,
+        });
+        return;
+      }
+
+      // Demo Mode fallback when Razorpay keys are not yet set
+      const demoOrderId = `order_demo_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+      res.json({
+        success: true,
+        mode: 'demo',
+        orderId: demoOrderId,
+        amount: amountInPaise,
+        currency: 'INR',
+        keyId: null,
+        message: 'DEMO MODE: Razorpay credentials not provided. Simulating real checkout.',
+      });
+    } catch (error: any) {
+      console.error('[Razorpay Create Order Error]:', error);
+      res.status(500).json({
+        success: false,
+        message: error?.message || 'Failed to create payment order',
+      });
+    }
+  });
+
+  // Verify Razorpay Payment and Update Gold Savings Scheme Passbook
+  app.post('/api/scheme/verify-payment', async (req, res) => {
+    try {
+      const { email, amount, razorpay_order_id, razorpay_payment_id, razorpay_signature, isDemo } = req.body;
+      const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+      const amtNumber = Number(amount) || 3000;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
+
+      if (!cleanEmail) {
+        res.status(400).json({ success: false, message: 'Email address required for scheme recording' });
+        return;
+      }
+
+      // If real Razorpay mode, verify cryptographic HMAC signature
+      if (!isDemo && keySecret && razorpay_order_id && razorpay_payment_id && razorpay_signature) {
+        const generatedSignature = crypto
+          .createHmac('sha256', keySecret)
+          .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+          .digest('hex');
+
+        if (generatedSignature !== razorpay_signature) {
+          res.status(400).json({
+            success: false,
+            message: 'Payment verification failed: Invalid HMAC signature.',
+          });
+          return;
+        }
+      }
+
+      const txId = razorpay_payment_id || `TXN_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+
+      if (isMongoConnected) {
+        let scheme = await GoldSchemeModel.findOne({ email: cleanEmail });
+        if (!scheme) {
+          scheme = new GoldSchemeModel({
+            id: `SCH-${Math.floor(10000 + Math.random() * 90000)}`,
+            email: cleanEmail,
+            schemeName: 'Shubham Swarna Varsha Plan',
+            monthlyInstallment: amtNumber,
+            totalMonths: 11,
+            monthsPaid: 0,
+            totalPaid: 0,
+            bonusDiscount: amtNumber,
+            nextDueDate: '10th of Next Month',
+            history: [],
+          });
+        }
+        const nextMonth = scheme.monthsPaid + 1;
+        scheme.monthsPaid += 1;
+        scheme.totalPaid += amtNumber;
+        scheme.history.unshift({
+          month: nextMonth,
+          amount: amtNumber,
+          date: new Date().toISOString().split('T')[0],
+          status: 'Paid',
+          transactionId: txId,
+        });
+        await scheme.save();
+        res.json({
+          success: true,
+          scheme,
+          receipt: { txId, amount: amtNumber, date: new Date().toLocaleDateString('en-IN') },
+          message: 'Payment verified and credited to Swarna passbook!',
+        });
+        return;
+      }
+
+      let scheme = schemes[cleanEmail];
+      if (!scheme) {
+        scheme = {
+          id: `SCH-${Math.floor(10000 + Math.random() * 90000)}`,
+          email: cleanEmail,
+          schemeName: 'Shubham Swarna Varsha Plan',
+          monthlyInstallment: amtNumber,
+          totalMonths: 11,
+          monthsPaid: 0,
+          totalPaid: 0,
+          bonusDiscount: amtNumber,
+          nextDueDate: '10th of Next Month',
+          history: [],
+        };
+        schemes[cleanEmail] = scheme;
+      }
+
+      const nextMonth = scheme.monthsPaid + 1;
+      scheme.monthsPaid += 1;
+      scheme.totalPaid += amtNumber;
+      scheme.history.unshift({
+        month: nextMonth,
+        amount: amtNumber,
+        date: new Date().toISOString().split('T')[0],
+        status: 'Paid',
+        transactionId: txId,
+      });
+      saveData('schemes.json', schemes);
+      res.json({
+        success: true,
+        scheme,
+        receipt: { txId, amount: amtNumber, date: new Date().toLocaleDateString('en-IN') },
+        message: 'Payment verified and credited to Swarna passbook!',
+      });
+    } catch (error: any) {
+      console.error('[Verify Payment Error]:', error);
+      res.status(500).json({ success: false, message: error?.message || 'Payment verification failed' });
+    }
+  });
+
+  // Direct Pay route (backwards compatibility)
+  app.post('/api/scheme/pay', async (req, res) => {
     const { email, amount } = req.body;
     const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+    const txId = `TXN${Math.floor(100000 + Math.random() * 900000)}`;
+    const amtNumber = Number(amount) || 3000;
+
+    try {
+      if (isMongoConnected) {
+        let scheme = await GoldSchemeModel.findOne({ email: cleanEmail });
+        if (!scheme) {
+          scheme = new GoldSchemeModel({
+            id: `SCH-${Math.floor(10000 + Math.random() * 90000)}`,
+            email: cleanEmail,
+            schemeName: 'Shubham Swarna Varsha Plan',
+            monthlyInstallment: amtNumber,
+            totalMonths: 11,
+            monthsPaid: 0,
+            totalPaid: 0,
+            bonusDiscount: amtNumber,
+            nextDueDate: '10th of Next Month',
+            history: [],
+          });
+        }
+        const nextMonth = scheme.monthsPaid + 1;
+        scheme.monthsPaid += 1;
+        scheme.totalPaid += amtNumber;
+        scheme.history.unshift({
+          month: nextMonth,
+          amount: amtNumber,
+          date: new Date().toISOString().split('T')[0],
+          status: 'Paid',
+          transactionId: txId,
+        });
+        await scheme.save();
+        res.json({
+          success: true,
+          scheme,
+          receipt: { txId, amount: amtNumber, date: new Date().toLocaleDateString('en-IN') },
+        });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Scheme Pay Error]:', e);
+    }
+
     let scheme = schemes[cleanEmail];
     if (!scheme) {
       scheme = {
         id: `SCH-${Math.floor(10000 + Math.random() * 90000)}`,
         email: cleanEmail,
         schemeName: 'Shubham Swarna Varsha Plan',
-        monthlyInstallment: Number(amount) || 3000,
+        monthlyInstallment: amtNumber,
         totalMonths: 11,
         monthsPaid: 0,
         totalPaid: 0,
-        bonusDiscount: Number(amount) || 3000,
+        bonusDiscount: amtNumber,
         nextDueDate: '10th of Next Month',
         history: [],
       };
@@ -935,61 +1784,121 @@ async function startServer() {
     }
 
     const nextMonth = scheme.monthsPaid + 1;
-    const txId = `TXN${Math.floor(100000 + Math.random() * 900000)}`;
-
     scheme.monthsPaid += 1;
-    scheme.totalPaid += Number(amount);
+    scheme.totalPaid += amtNumber;
     scheme.history.unshift({
       month: nextMonth,
-      amount: Number(amount),
+      amount: amtNumber,
       date: new Date().toISOString().split('T')[0],
       status: 'Paid',
       transactionId: txId,
     });
-
     saveData('schemes.json', schemes);
-    res.json({ success: true, scheme, receipt: { txId, amount, date: new Date().toLocaleDateString('en-IN') } });
+    res.json({ success: true, scheme, receipt: { txId, amount: amtNumber, date: new Date().toLocaleDateString('en-IN') } });
   });
 
-  // 6. App Version & Real-Time In-App Updates
-  app.get('/api/version', (req, res) => {
+  // 6. App Version
+  app.get('/api/version', async (req, res) => {
+    try {
+      if (isMongoConnected) {
+        const ver = await VersionInfoModel.findOne().lean();
+        if (ver) {
+          res.json({ success: true, versionInfo: ver });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB Version GET Error]:', e);
+    }
     res.json({ success: true, versionInfo: currentVersion });
   });
 
-  app.post('/api/admin/version', (req, res) => {
+  app.post('/api/admin/version', async (req, res) => {
     const { latestVersion, updateMessage, releaseNotes } = req.body;
-    currentVersion = {
-      currentVersion: currentVersion.currentVersion,
+    const newVersion: Partial<AppVersionInfo> = {
       latestVersion: latestVersion || '2.1.0',
       updateAvailable: true,
       updateMessage: updateMessage || 'A new update for Shubham Jewellers is now available!',
       releaseNotes: releaseNotes || [
         'Real-time Live Gold Rate alerts',
-        'Zero Data Loss Account & Order Synchronization',
+        'Zero Data Loss MongoDB Atlas Synchronization',
         'Editable Pre-formatted WhatsApp Inquiries',
       ],
+    };
+
+    try {
+      if (isMongoConnected) {
+        const updated = await VersionInfoModel.findOneAndUpdate({}, newVersion, { upsert: true, new: true }).lean();
+        currentVersion = updated as AppVersionInfo;
+        saveData('version.json', currentVersion);
+        res.json({ success: true, versionInfo: updated, message: 'New version broadcasted in MongoDB!' });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Version POST Error]:', e);
+    }
+
+    currentVersion = {
+      ...currentVersion,
+      ...newVersion,
     };
     saveData('version.json', currentVersion);
     res.json({ success: true, versionInfo: currentVersion, message: 'New version broadcasted to all active app instances!' });
   });
 
   // 7. Company Details / About Us
-  app.get('/api/company-info', (req, res) => {
+  app.get('/api/company-info', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    try {
+      if (isMongoConnected) {
+        const info = await CompanyInfoModel.findOne().lean();
+        if (info) {
+          res.json({ success: true, companyInfo: info });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB Company Info GET Error]:', e);
+    }
     res.json({ success: true, companyInfo: currentCompanyInfo });
   });
 
-  app.post('/api/admin/company-info', (req, res) => {
+  app.post('/api/admin/company-info', async (req, res) => {
     const infoUpdate = req.body as Partial<CompanyInfo>;
-    currentCompanyInfo = { ...currentCompanyInfo, ...infoUpdate };
+    try {
+      if (isMongoConnected) {
+        const updated = await CompanyInfoModel.findOneAndUpdate({}, infoUpdate, { upsert: true, new: true }).lean();
+        currentCompanyInfo = updated as CompanyInfo;
+        saveData('company-info.json', currentCompanyInfo);
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.json({ success: true, companyInfo: updated, message: 'Company details updated in MongoDB!' });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB Company Info POST Error]:', e);
+    }
+
+    currentCompanyInfo = { ...currentCompanyInfo, ...infoUpdate } as CompanyInfo;
     saveData('company-info.json', currentCompanyInfo);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({ success: true, companyInfo: currentCompanyInfo, message: 'Company details updated live!' });
   });
 
   // 8. Zero Data Loss Account Sync (User Profile, Cart, Wishlist)
-  app.get('/api/user-data/:email', (req, res) => {
+  app.get('/api/user-data/:email', async (req, res) => {
     const email = decodeURIComponent(req.params.email).toLowerCase();
+    try {
+      if (isMongoConnected) {
+        const data = await UserDataModel.findOne({ email }).lean();
+        if (data) {
+          res.json({ success: true, userData: data });
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('[MongoDB User Data GET Error]:', e);
+    }
+
     const data = userDataStore[email];
     if (data) {
       res.json({ success: true, userData: data });
@@ -998,7 +1907,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/user-data', (req, res) => {
+  app.post('/api/user-data', async (req, res) => {
     const { email, profile, cart, wishlistIds } = req.body;
     const cleanEmail = email ? String(email).trim().toLowerCase() : '';
     if (!cleanEmail) {
@@ -1008,13 +1917,32 @@ async function startServer() {
     const emailPrefix = cleanEmail.split('@')[0] || 'Customer';
     const defaultDerivedName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
 
-    userDataStore[cleanEmail] = {
+    const userPayload: UserSyncedData = {
       email: cleanEmail,
-      profile: profile || { email: cleanEmail, name: defaultDerivedName, address: { street: '', city: '', state: '', pincode: '' }, isLoggedIn: true },
+      profile: profile || {
+        email: cleanEmail,
+        name: defaultDerivedName,
+        address: { street: '', city: '', state: '', pincode: '' },
+        isLoggedIn: true,
+      },
       cart: cart || [],
       wishlistIds: wishlistIds || [],
       lastUpdated: new Date().toISOString(),
     };
+
+    try {
+      if (isMongoConnected) {
+        await UserDataModel.findOneAndUpdate({ email: cleanEmail }, userPayload, { upsert: true, new: true });
+        userDataStore[cleanEmail] = userPayload;
+        saveData('user-data.json', userDataStore);
+        res.json({ success: true, message: 'Account data synced safely to MongoDB Atlas!' });
+        return;
+      }
+    } catch (e) {
+      console.error('[MongoDB User Data POST Error]:', e);
+    }
+
+    userDataStore[cleanEmail] = userPayload;
     saveData('user-data.json', userDataStore);
     res.json({ success: true, message: 'Account data synced safely to remote database!' });
   });
@@ -1029,22 +1957,21 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     console.log('📦 Running in PRODUCTION mode - serving static files');
-    // ✅ FIXED: Correct path for production build
     const distPath = path.join(resolvedDirname, '../dist');
-    
+
     if (!fs.existsSync(distPath)) {
       console.error(`❌ ERROR: dist folder not found at ${distPath}`);
       console.error('Make sure you run: npm run build');
       process.exit(1);
     }
 
-    // Serve static files from dist
-    app.use(express.static(distPath, { 
-      maxAge: '1d',
-      etag: false 
-    }));
+    app.use(
+      express.static(distPath, {
+        maxAge: '1d',
+        etag: false,
+      })
+    );
 
-    // SPA fallback - serve index.html for all other routes
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'), (err) => {
         if (err) {
@@ -1055,15 +1982,19 @@ async function startServer() {
     });
   }
 
-  // ✅ FIXED: Listen on correct HOST and PORT
+  // Start HTTP Listener
   app.listen(PORT, HOST, () => {
     console.log(`\n✅ Shubham Jewellers Server started successfully!`);
     console.log(`📍 Listening on http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
     console.log(`📦 Environment: ${NODE_ENV}`);
-    console.log(`📁 Data directory: ${DATA_DIR} (persistent disk: ${usingPersistentDisk ? 'YES' : 'NO - see warning above'})\n`);
+    console.log(
+      `🍃 Database: ${
+        isMongoConnected ? 'MongoDB Atlas (Connected)' : mongoUri ? 'MongoDB Atlas (Connecting...)' : 'Local File Storage'
+      }`
+    );
+    console.log(`📁 Data directory: ${DATA_DIR} (persistent disk: ${usingPersistentDisk ? 'YES' : 'NO'})\n`);
   });
 
-  // Handle server errors
   process.on('unhandledRejection', (err) => {
     console.error('Unhandled Rejection:', err);
   });
