@@ -10,6 +10,7 @@ import mongoose, { Schema } from 'mongoose';
 import Razorpay from 'razorpay';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
+
 import {
   initialGoldRates,
   initialBanners,
@@ -21,6 +22,7 @@ import {
   initialDrawerConfig,
   initialFooterConfig,
 } from './src/data/initialData.js';
+
 import {
   GoldRates,
   Banner,
@@ -41,7 +43,6 @@ function resolveDirname(): string {
   if (typeof __dirname !== 'undefined') return __dirname;
   return path.dirname(fileURLToPath(import.meta.url));
 }
-
 const resolvedDirname = resolveDirname();
 
 /* ==========================================================================
@@ -214,7 +215,7 @@ const DrawerConfigSchema = new Schema<DrawerConfig>(
     whatsappBtnSubtitle: { type: String, default: 'Chat live with our gold consultants' },
     categorySectionTitle: { type: String, default: 'Shop By Category' },
     shopForSectionTitle: { type: String, default: 'Shop For' },
-    footerTagline: { type: String, default: 'Shubham Jewellers • Verified BIS Hallmarked' },
+    footerTagline: { type: String, default: 'Shubham Jewellers   Verified BIS Hallmarked' },
   },
   { timestamps: true }
 );
@@ -245,7 +246,7 @@ const FooterConfigSchema = new Schema<FooterConfig>(
     schemeTitle: { type: String, default: '' },
     schemeDescription: { type: String, default: '' },
     schemeHighlightBox: { type: String, default: '' },
-    copyrightText: { type: String, default: '© 2026 Shubham Jewellers. All rights reserved.' },
+    copyrightText: { type: String, default: '  2026 Shubham Jewellers. All rights reserved.' },
   },
   { timestamps: true }
 );
@@ -264,6 +265,7 @@ const VersionInfoSchema = new Schema<AppVersionInfo>(
 );
 export const VersionInfoModel = mongoose.model<AppVersionInfo>('AppVersion', VersionInfoSchema);
 
+
 /* ==========================================================================
    DATABASE SEEDING (Run if MongoDB Collections are Empty)
    ========================================================================== */
@@ -273,55 +275,55 @@ async function seedInitialDataIfEmpty() {
     const rateCount = await RatesModel.countDocuments();
     if (rateCount === 0) {
       await RatesModel.create(initialGoldRates);
-      console.log('🌱 Seeded default Gold & Silver rates to MongoDB');
+      console.log('  Seeded default Gold & Silver rates to MongoDB');
     }
 
     const bannerCount = await BannerModel.countDocuments();
     if (bannerCount === 0) {
-      await BannerModel.insertMany(initialBanners);
-      console.log(`🌱 Seeded ${initialBanners.length} banners to MongoDB`);
+      await BannerModel.insertMany(initialBanners.map(normalizeBanner));
+      console.log(`  Seeded ${initialBanners.length} banners to MongoDB`);
     }
 
     const productCount = await ProductModel.countDocuments();
     if (productCount === 0) {
       await ProductModel.insertMany(initialProducts);
-      console.log(`🌱 Seeded ${initialProducts.length} products to MongoDB`);
+      console.log(`  Seeded ${initialProducts.length} products to MongoDB`);
     }
 
     const categoryCount = await CategoryModel.countDocuments();
     if (categoryCount === 0) {
       await CategoryModel.insertMany(initialCategoryItems);
-      console.log(`🌱 Seeded ${initialCategoryItems.length} categories to MongoDB`);
+      console.log(`  Seeded ${initialCategoryItems.length} categories to MongoDB`);
     }
 
     const bottomBannerCount = await BottomBannerModel.countDocuments();
     if (bottomBannerCount === 0) {
       await BottomBannerModel.create(initialBottomBanner);
-      console.log('🌱 Seeded bottom banner to MongoDB');
+      console.log('  Seeded bottom banner to MongoDB');
     }
 
     const companyCount = await CompanyInfoModel.countDocuments();
     if (companyCount === 0) {
       await CompanyInfoModel.create(initialCompanyInfo);
-      console.log('🌱 Seeded company info to MongoDB');
+      console.log('  Seeded company info to MongoDB');
     }
 
     const drawerCount = await DrawerConfigModel.countDocuments();
     if (drawerCount === 0) {
       await DrawerConfigModel.create(initialDrawerConfig);
-      console.log('🌱 Seeded drawer config to MongoDB');
+      console.log('  Seeded drawer config to MongoDB');
     }
 
     const footerCount = await FooterConfigModel.countDocuments();
     if (footerCount === 0) {
       await FooterConfigModel.create(initialFooterConfig);
-      console.log('🌱 Seeded footer config to MongoDB');
+      console.log('  Seeded footer config to MongoDB');
     }
 
     const versionCount = await VersionInfoModel.countDocuments();
     if (versionCount === 0) {
       await VersionInfoModel.create(initialVersionInfo);
-      console.log('🌱 Seeded version info to MongoDB');
+      console.log('  Seeded version info to MongoDB');
     }
 
     const schemeCount = await GoldSchemeModel.countDocuments();
@@ -344,12 +346,31 @@ async function seedInitialDataIfEmpty() {
           { month: 5, amount: 5000, date: 'Pending', status: 'Pending' },
         ],
       });
-      console.log('🌱 Seeded demo customer scheme to MongoDB');
+      console.log('  Seeded demo customer scheme to MongoDB');
     }
+
   } catch (err) {
     console.error('Error during MongoDB initial seed:', err);
   }
 }
+
+// Helper to normalize banner object fields
+function normalizeBanner(b: any): Banner {
+  const img = b.image || b.imageUrl || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=1200';
+  const tag = b.discountBadge || b.discountTag || 'SPECIAL OFFER';
+  return {
+    id: b.id || `b-${Date.now()}`, // <--- The cause of changing IDs is isolated here
+    title: b.title || 'Royal Jewellery Collection',
+    subtitle: b.subtitle || 'Exclusive Festival Offer',
+    image: img,
+    imageUrl: img,
+    discountBadge: tag,
+    discountTag: tag,
+    ctaText: b.ctaText || 'Explore Collection',
+    categoryLink: b.categoryLink || 'Gold',
+  };
+}
+
 
 /* ==========================================================================
    SERVER INITIALIZATION & API ROUTES
@@ -378,6 +399,7 @@ async function startServer() {
   const DATA_DIR = process.env.DATA_DIR
     ? path.resolve(process.env.DATA_DIR)
     : path.join(process.cwd(), 'data');
+
   const usingPersistentDisk = !!process.env.DATA_DIR;
 
   try {
@@ -415,7 +437,10 @@ async function startServer() {
 
   // Fallback in-memory states
   let currentRates: GoldRates = loadData<GoldRates>('rates.json', { ...initialGoldRates });
-  let currentBanners: Banner[] = loadData<Banner[]>('banners.json', [...initialBanners]);
+  
+  // FIX: Normalize ONCE during initialization to prevent changing IDs on every fetch
+  let currentBanners: Banner[] = loadData<Banner[]>('banners.json', [...initialBanners]).map(normalizeBanner);
+  
   let currentProducts: Product[] = loadData<Product[]>('products.json', [...initialProducts]);
   let currentCategories: CategoryItem[] = loadData<CategoryItem[]>('categories.json', [...initialCategoryItems]);
   let currentBottomBanner: BottomBanner = loadData<BottomBanner>('bottom-banner.json', { ...initialBottomBanner });
@@ -424,6 +449,7 @@ async function startServer() {
   let currentVersion: AppVersionInfo = loadData<AppVersionInfo>('version.json', { ...initialVersionInfo });
   let currentCompanyInfo: CompanyInfo = loadData<CompanyInfo>('company-info.json', { ...initialCompanyInfo });
   const userDataStore: Record<string, UserSyncedData> = loadData<Record<string, UserSyncedData>>('user-data.json', {});
+
   const schemes: Record<string, GoldScheme> = loadData<Record<string, GoldScheme>>('schemes.json', {
     'customer@gmail.com': {
       id: 'SCH-89123',
@@ -454,6 +480,7 @@ async function startServer() {
     const keyId = process.env.RAZORPAY_KEY_ID?.trim();
     const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
     if (!keyId || !keySecret) return null;
+
     if (!razorpayClient) {
       razorpayClient = new Razorpay({
         key_id: keyId,
@@ -467,7 +494,7 @@ async function startServer() {
   const configuredAdminPin = process.env.ADMIN_PIN?.trim();
   if (!configuredAdminPin) {
     console.error('\n' + '='.repeat(70));
-    console.error('❌ CRITICAL SECURITY ALERT: ADMIN_PIN environment variable is NOT set!');
+    console.error('  CRITICAL SECURITY ALERT: ADMIN_PIN environment variable is NOT set!');
     console.error('   Admin Passcode verification will be DISABLED until ADMIN_PIN is set.');
     console.error('   Please add ADMIN_PIN=<your-secure-pin> in .env or your deployment dashboard.');
     console.error('='.repeat(70) + '\n');
@@ -481,21 +508,23 @@ async function startServer() {
 
   if (mongoUri) {
     try {
-      console.log('🔄 Connecting to MongoDB Atlas...');
+      console.log('  Connecting to MongoDB Atlas...');
       await mongoose.connect(mongoUri, {
         serverSelectionTimeoutMS: 8000,
       });
       isMongoConnected = true;
-      console.log('🍃 MongoDB Atlas connected successfully!');
+      console.log('  MongoDB Atlas connected successfully!');
+      
       await seedInitialDataIfEmpty();
+
     } catch (mongoErr: any) {
-      console.error('⚠️ [MongoDB Connection Warning] Could not connect to MongoDB Atlas:', mongoErr?.message || mongoErr);
+      console.error('  [MongoDB Connection Warning] Could not connect to MongoDB Atlas:', mongoErr?.message || mongoErr);
       console.warn('   Continuing with local fallback storage until MONGODB_URI is reachable.');
       isMongoConnected = false;
     }
   } else {
     console.warn(
-      '\n⚠️  [MongoDB Setup Notice]\n' +
+      '\n   [MongoDB Setup Notice]\n' +
       '   MONGODB_URI environment variable is not configured.\n' +
       '   The app will run with file/memory storage.\n' +
       '   To connect MongoDB Atlas permanently: set MONGODB_URI in your .env or Render Dashboard.\n'
@@ -504,22 +533,21 @@ async function startServer() {
 
   mongoose.connection.on('connected', () => {
     isMongoConnected = true;
-    console.log('🍃 MongoDB Atlas Connection state: CONNECTED');
+    console.log('  MongoDB Atlas Connection state: CONNECTED');
   });
 
   mongoose.connection.on('error', (err) => {
-    console.error('🍃 MongoDB Connection Error:', err);
+    console.error('  MongoDB Connection Error:', err);
     isMongoConnected = false;
   });
 
   mongoose.connection.on('disconnected', () => {
     isMongoConnected = false;
-    console.warn('🍃 MongoDB Atlas Disconnected.');
+    console.warn('  MongoDB Atlas Disconnected.');
   });
 
   // Connection-pooled Nodemailer Transporter (Singleton)
   let cachedTransporter: nodemailer.Transporter | null = null;
-
   function getEmailTransporter(user: string, pass: string): nodemailer.Transporter {
     if (!cachedTransporter) {
       cachedTransporter = nodemailer.createTransport({
@@ -564,11 +592,15 @@ async function startServer() {
         <h2 style="color: #4A0E17; font-family: 'Times New Roman', serif; margin-bottom: 4px;">SHUBHAM JEWELLERS</h2>
         <p style="color: #D4AF37; font-size: 13px; font-weight: bold; margin-top: 0; text-transform: uppercase; letter-spacing: 1px;">Royal Jewels & Fine Crafts</p>
         <hr style="border: none; border-top: 1px solid #D4AF37; margin: 20px 0;" />
+        
         <p style="font-size: 14px; color: #333; margin-bottom: 24px;">Your 4-Digit One-Time Password (OTP) for account verification is:</p>
+        
         <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #4A0E17; background-color: #FFFFFF; border: 2px dashed #D4AF37; padding: 16px; border-radius: 8px; display: inline-block; margin-bottom: 24px;">
           ${otp}
         </div>
+        
         <p style="font-size: 12px; color: #666; margin-bottom: 0;">This code is valid for 10 minutes. Please do not share this OTP with anyone.</p>
+        
         <hr style="border: none; border-top: 1px dashed #CCC; margin: 20px 0;" />
         <p style="font-size: 10px; color: #999;">If you did not request this code, please ignore this email.</p>
       </div>
@@ -616,7 +648,6 @@ async function startServer() {
             subject: 'Shubham Jewellers - Your Verification Code',
             html: htmlContent,
           });
-
           console.log(`[Gmail SMTP Success] Verification OTP sent to ${email} (Attempt ${attempt})`);
           return { success: true, provider: 'Gmail SMTP' };
         } catch (err: any) {
@@ -639,22 +670,6 @@ async function startServer() {
     };
   }
 
-  // Helper to normalize banner object fields
-  function normalizeBanner(b: any): Banner {
-    const img = b.image || b.imageUrl || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=1200';
-    const tag = b.discountBadge || b.discountTag || 'SPECIAL OFFER';
-    return {
-      id: b.id || `b-${Date.now()}`,
-      title: b.title || 'Royal Jewellery Collection',
-      subtitle: b.subtitle || 'Exclusive Festival Offer',
-      image: img,
-      imageUrl: img,
-      discountBadge: tag,
-      discountTag: tag,
-      ctaText: b.ctaText || 'Explore Collection',
-      categoryLink: b.categoryLink || 'Gold',
-    };
-  }
 
   // Helper to categorize a product
   function getProductSpecificCategory(p: Product): string {
@@ -726,7 +741,7 @@ async function startServer() {
     return false;
   }
 
-  // ✅ HEALTH CHECK ENDPOINT
+  //   HEALTH CHECK ENDPOINT
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
@@ -867,7 +882,6 @@ async function startServer() {
     } catch (e) {
       console.error('[MongoDB Product DELETE Error]:', e);
     }
-
     currentProducts = currentProducts.filter((p) => p.id !== id);
     saveData('products.json', currentProducts);
     res.json({ success: true, products: currentProducts, message: 'Product deleted' });
@@ -909,7 +923,6 @@ async function startServer() {
       );
 
       let detectedCategory: string | null = null;
-
       if (exactProduct) {
         detectedCategory = getProductSpecificCategory(exactProduct);
       } else {
@@ -918,8 +931,8 @@ async function startServer() {
           try {
             const { GoogleGenAI } = await import('@google/genai');
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
             let contents: any = null;
+
             if (imageUrl.startsWith('data:image/')) {
               const matches = imageUrl.match(/^data:(image\/[^;]+);base64,(.+)$/s);
               if (matches && matches[1] && matches[2]) {
@@ -982,7 +995,6 @@ async function startServer() {
       // 4. In-stock inventory lookup
       if (detectedCategory) {
         let matchingInStock = catalogProducts.filter((p) => p.inStock && isProductInTargetCategory(p, detectedCategory!));
-
         if (exactProduct && exactProduct.inStock) {
           matchingInStock = matchingInStock.filter((p) => p.id !== exactProduct.id);
           matchingInStock.unshift(exactProduct);
@@ -1037,7 +1049,6 @@ async function startServer() {
     const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'global';
     const { pin } = req.body;
     const now = Date.now();
-
     const currentState = adminAttemptsMap.get(clientIp) || { attempts: 0, lockoutUntil: 0 };
 
     if (currentState.lockoutUntil > now) {
@@ -1088,6 +1099,10 @@ async function startServer() {
     }
   });
 
+  // =========================================================================
+  // FIX: Banners endpoint no longer normalizes on GET, stopping changing IDs
+  // =========================================================================
+  
   // 3. Banners
   app.get('/api/banners', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1095,18 +1110,19 @@ async function startServer() {
       if (isMongoConnected) {
         const banners = await BannerModel.find().lean();
         if (banners && banners.length > 0) {
-          res.json({ success: true, banners: banners.map(normalizeBanner) });
+          res.json({ success: true, banners }); // Removed mapping
           return;
         }
       }
     } catch (e) {
       console.error('[MongoDB Banners GET Error]:', e);
     }
-    res.json({ success: true, banners: currentBanners.map(normalizeBanner) });
+    res.json({ success: true, banners: currentBanners }); // Removed mapping
   });
 
   app.post('/api/admin/banners', async (req, res) => {
     const rawBanner = req.body as Banner;
+    // Normalize ONLY on insertion
     const newBanner = normalizeBanner({
       ...rawBanner,
       id: rawBanner.id || `b-${Date.now()}`,
@@ -1116,7 +1132,7 @@ async function startServer() {
       if (isMongoConnected) {
         await BannerModel.findOneAndUpdate({ id: newBanner.id }, newBanner, { upsert: true, new: true });
         const allBanners = await BannerModel.find().lean();
-        currentBanners = allBanners.map(normalizeBanner);
+        currentBanners = allBanners as Banner[];
         saveData('banners.json', currentBanners);
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         res.json({ success: true, banners: currentBanners, message: 'Banner saved to MongoDB!' });
@@ -1143,7 +1159,7 @@ async function startServer() {
       if (isMongoConnected) {
         await BannerModel.deleteOne({ id });
         const allBanners = await BannerModel.find().lean();
-        currentBanners = allBanners.map(normalizeBanner);
+        currentBanners = allBanners as Banner[]; // Removed mapping
         saveData('banners.json', currentBanners);
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         res.json({ success: true, banners: currentBanners, message: 'Banner removed from MongoDB' });
@@ -1152,7 +1168,6 @@ async function startServer() {
     } catch (e) {
       console.error('[MongoDB Banner DELETE Error]:', e);
     }
-
     currentBanners = currentBanners.filter((b) => b.id !== id);
     saveData('banners.json', currentBanners);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1231,7 +1246,6 @@ async function startServer() {
     } catch (e) {
       console.error('[MongoDB Bottom Banner POST Error]:', e);
     }
-
     currentBottomBanner = { ...currentBottomBanner, ...rawBanner };
     saveData('bottom-banner.json', currentBottomBanner);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1269,7 +1283,6 @@ async function startServer() {
     } catch (e) {
       console.error('[MongoDB Drawer Config POST Error]:', e);
     }
-
     currentDrawerConfig = { ...currentDrawerConfig, ...rawConfig } as DrawerConfig;
     saveData('drawer-config.json', currentDrawerConfig);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1307,7 +1320,6 @@ async function startServer() {
     } catch (e) {
       console.error('[MongoDB Footer Config POST Error]:', e);
     }
-
     currentFooterConfig = { ...currentFooterConfig, ...rawConfig } as FooterConfig;
     saveData('footer-config.json', currentFooterConfig);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1339,6 +1351,7 @@ async function startServer() {
 
       // Check rate limit for both email and IP
       const rateLimitKeys = [cleanEmail, clientIp];
+
       for (const key of rateLimitKeys) {
         const state = otpRateLimitMap.get(key) || { lastRequestTime: 0, hourlyRequests: [] };
 
@@ -1397,6 +1410,7 @@ async function startServer() {
         const state = otpRateLimitMap.get(key) || { lastRequestTime: 0, hourlyRequests: [] };
         const updatedHourly = state.hourlyRequests.filter((timestamp) => now - timestamp < HOURLY_WINDOW_MS);
         updatedHourly.push(now);
+
         otpRateLimitMap.set(key, {
           lastRequestTime: now,
           hourlyRequests: updatedHourly,
@@ -1454,6 +1468,7 @@ async function startServer() {
 
     if (isValid) {
       delete otpStore[cleanEmail];
+
       const emailPrefix = cleanEmail.split('@')[0] || 'Customer';
       const defaultDerivedName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
 
@@ -1498,6 +1513,7 @@ async function startServer() {
 
   app.get('/api/scheme/:email', async (req, res) => {
     const email = decodeURIComponent(req.params.email).toLowerCase();
+
     try {
       if (isMongoConnected) {
         let scheme = await GoldSchemeModel.findOne({ email }).lean();
@@ -1595,6 +1611,7 @@ async function startServer() {
 
       // Demo Mode fallback when Razorpay keys are not yet set
       const demoOrderId = `order_demo_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+
       res.json({
         success: true,
         mode: 'demo',
@@ -1646,6 +1663,7 @@ async function startServer() {
 
       if (isMongoConnected) {
         let scheme = await GoldSchemeModel.findOne({ email: cleanEmail });
+
         if (!scheme) {
           scheme = new GoldSchemeModel({
             id: `SCH-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -1660,6 +1678,7 @@ async function startServer() {
             history: [],
           });
         }
+
         const nextMonth = scheme.monthsPaid + 1;
         scheme.monthsPaid += 1;
         scheme.totalPaid += amtNumber;
@@ -1670,7 +1689,9 @@ async function startServer() {
           status: 'Paid',
           transactionId: txId,
         });
+
         await scheme.save();
+
         res.json({
           success: true,
           scheme,
@@ -1707,6 +1728,7 @@ async function startServer() {
         status: 'Paid',
         transactionId: txId,
       });
+
       saveData('schemes.json', schemes);
       res.json({
         success: true,
@@ -1730,6 +1752,7 @@ async function startServer() {
     try {
       if (isMongoConnected) {
         let scheme = await GoldSchemeModel.findOne({ email: cleanEmail });
+
         if (!scheme) {
           scheme = new GoldSchemeModel({
             id: `SCH-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -1744,6 +1767,7 @@ async function startServer() {
             history: [],
           });
         }
+
         const nextMonth = scheme.monthsPaid + 1;
         scheme.monthsPaid += 1;
         scheme.totalPaid += amtNumber;
@@ -1754,7 +1778,9 @@ async function startServer() {
           status: 'Paid',
           transactionId: txId,
         });
+
         await scheme.save();
+
         res.json({
           success: true,
           scheme,
@@ -1793,6 +1819,7 @@ async function startServer() {
       status: 'Paid',
       transactionId: txId,
     });
+
     saveData('schemes.json', schemes);
     res.json({ success: true, scheme, receipt: { txId, amount: amtNumber, date: new Date().toLocaleDateString('en-IN') } });
   });
@@ -1815,6 +1842,7 @@ async function startServer() {
 
   app.post('/api/admin/version', async (req, res) => {
     const { latestVersion, updateMessage, releaseNotes } = req.body;
+
     const newVersion: Partial<AppVersionInfo> = {
       latestVersion: latestVersion || '2.1.0',
       updateAvailable: true,
@@ -1865,6 +1893,7 @@ async function startServer() {
 
   app.post('/api/admin/company-info', async (req, res) => {
     const infoUpdate = req.body as Partial<CompanyInfo>;
+
     try {
       if (isMongoConnected) {
         const updated = await CompanyInfoModel.findOneAndUpdate({}, infoUpdate, { upsert: true, new: true }).lean();
@@ -1887,6 +1916,7 @@ async function startServer() {
   // 8. Zero Data Loss Account Sync (User Profile, Cart, Wishlist)
   app.get('/api/user-data/:email', async (req, res) => {
     const email = decodeURIComponent(req.params.email).toLowerCase();
+
     try {
       if (isMongoConnected) {
         const data = await UserDataModel.findOne({ email }).lean();
@@ -1910,10 +1940,12 @@ async function startServer() {
   app.post('/api/user-data', async (req, res) => {
     const { email, profile, cart, wishlistIds } = req.body;
     const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+
     if (!cleanEmail) {
       res.status(400).json({ success: false, message: 'Email address required for sync' });
       return;
     }
+
     const emailPrefix = cleanEmail.split('@')[0] || 'Customer';
     const defaultDerivedName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
 
@@ -1949,29 +1981,26 @@ async function startServer() {
 
   // Vite development middleware vs Static Production
   if (NODE_ENV !== 'production') {
-    console.log('🔧 Running in DEVELOPMENT mode with Vite HMR');
+    console.log('  Running in DEVELOPMENT mode with Vite HMR');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    console.log('📦 Running in PRODUCTION mode - serving static files');
+    console.log('  Running in PRODUCTION mode - serving static files');
     const distPath = path.join(resolvedDirname, '../dist');
-
     if (!fs.existsSync(distPath)) {
-      console.error(`❌ ERROR: dist folder not found at ${distPath}`);
+      console.error(`  ERROR: dist folder not found at ${distPath}`);
       console.error('Make sure you run: npm run build');
       process.exit(1);
     }
-
     app.use(
       express.static(distPath, {
         maxAge: '1d',
         etag: false,
       })
     );
-
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'), (err) => {
         if (err) {
@@ -1984,21 +2013,20 @@ async function startServer() {
 
   // Start HTTP Listener
   app.listen(PORT, HOST, () => {
-    console.log(`\n✅ Shubham Jewellers Server started successfully!`);
-    console.log(`📍 Listening on http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
-    console.log(`📦 Environment: ${NODE_ENV}`);
+    console.log(`\n  Shubham Jewellers Server started successfully!`);
+    console.log(`  Listening on http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+    console.log(`  Environment: ${NODE_ENV}`);
     console.log(
-      `🍃 Database: ${
+      `  Database: ${
         isMongoConnected ? 'MongoDB Atlas (Connected)' : mongoUri ? 'MongoDB Atlas (Connecting...)' : 'Local File Storage'
       }`
     );
-    console.log(`📁 Data directory: ${DATA_DIR} (persistent disk: ${usingPersistentDisk ? 'YES' : 'NO'})\n`);
+    console.log(`  Data directory: ${DATA_DIR} (persistent disk: ${usingPersistentDisk ? 'YES' : 'NO'})\n`);
   });
 
   process.on('unhandledRejection', (err) => {
     console.error('Unhandled Rejection:', err);
   });
-
   process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
     process.exit(1);

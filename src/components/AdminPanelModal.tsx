@@ -72,12 +72,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   // Product Form
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [pTitle, setPTitle] = useState('');
-  const [pCategory, setPCategory] = useState<string>('Gold');
+  const [pCategory, setPCategory] = useState<string>('');
   const [pPurity, setPPurity] = useState<'24K' | '22K' | '18K' | '925 Silver' | '999 Silver'>('22K');
   const [pWeight, setPWeight] = useState('12.5');
   const [pMaking, setPMaking] = useState('12');
   const [pImage, setPImage] = useState('https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80');
-  const [pGallery, setPGallery] = useState('');
+  const [pGallery, setPGallery] = useState<string[]>([]);
   const [pGender, setPGender] = useState<'Women' | 'Men' | 'Unisex' | 'Kids'>('Women');
   const [pDesc, setPDesc] = useState('Certified BIS Hallmarked handcrafted luxury gold ornament.');
   const [pInStock, setPInStock] = useState<boolean>(true);
@@ -141,6 +141,36 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [ftSchemeHighlightBox, setFtSchemeHighlightBox] = useState(footerConfig?.schemeHighlightBox || '');
   const [ftCopyrightText, setFtCopyrightText] = useState(footerConfig?.copyrightText || '');
   const [ftMsg, setFtMsg] = useState('');
+
+  const getNormalizedCategories = (): CategoryItem[] => {
+    return customCategories.map((item, index) => {
+      if (typeof item === 'string') {
+        return {
+          id: `cat-${index}-${item.toLowerCase().replace(/\s+/g, '-')}`,
+          name: item,
+          image: '',
+          order: index + 1,
+        };
+      }
+      return {
+        ...item,
+        order: item.order ?? index + 1,
+      };
+    });
+  };
+
+  // Dynamically set default product category based on available categories
+  useEffect(() => {
+    if (isOpen) {
+      const normalized = getNormalizedCategories();
+      const firstAvailableCategory = normalized.length > 0 ? normalized[0].name : '';
+      if (!pCategory || !normalized.some((c) => c.name === pCategory)) {
+        if (firstAvailableCategory) {
+          setPCategory(firstAvailableCategory);
+        }
+      }
+    }
+  }, [isOpen, customCategories, pCategory]);
 
   // Populate local form states ONCE when modal is opened, avoiding 4s polling state overwrites
   useEffect(() => {
@@ -319,23 +349,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     }
   };
 
-  const getNormalizedCategories = (): CategoryItem[] => {
-    return customCategories.map((item, index) => {
-      if (typeof item === 'string') {
-        return {
-          id: `cat-${index}-${item.toLowerCase().replace(/\s+/g, '-')}`,
-          name: item,
-          image: '',
-          order: index + 1,
-        };
-      }
-      return {
-        ...item,
-        order: item.order ?? index + 1,
-      };
-    });
-  };
-
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatName.trim()) return;
@@ -432,7 +445,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setPWeight(prod.weightGrams.toString());
     setPMaking(prod.makingChargePercent.toString());
     setPImage(prod.image);
-    setPGallery(prod.gallery ? prod.gallery.join(', ') : prod.image);
+    setPGallery(prod.gallery && prod.gallery.length > 0 ? prod.gallery : (prod.image ? [prod.image] : []));
     setPGender(prod.gender || 'Women');
     setPDesc(prod.description);
     setPInStock(prod.inStock ?? true);
@@ -441,19 +454,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving('product');
-    const galleryUrls = pGallery
-      ? pGallery.split(',').map((url) => url.trim()).filter(Boolean)
-      : [pImage];
+    const galleryUrls = pGallery.length > 0 ? pGallery : (pImage ? [pImage] : []);
+    const normalizedCats = getNormalizedCategories();
+    const resolvedCategory = pCategory || (normalizedCats.length > 0 ? normalizedCats[0].name : 'Gold');
 
     const productPayload: Partial<Product> = {
       title: pTitle || 'Royal Kundan Gold Jewellery',
-      category: pCategory,
+      category: resolvedCategory,
       purity: pPurity,
       weightGrams: Number(pWeight) || 10,
       makingChargePercent: Number(pMaking) || 12,
       baseMakingCharge: 250,
       image: pImage,
-      gallery: galleryUrls.length > 0 ? galleryUrls : [pImage],
+      gallery: galleryUrls,
       description: pDesc || 'Crafted with fine 22K BIS Hallmarked gold.',
       gender: pGender,
       collection: 'Bridal Royal',
@@ -475,9 +488,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       setPTitle('');
       setPWeight('12.5');
       setPMaking('12');
-      setPGallery('');
+      setPGallery([]);
       setPDesc('Certified BIS Hallmarked handcrafted luxury gold ornament.');
       setPInStock(true);
+      if (normalizedCats.length > 0) {
+        setPCategory(normalizedCats[0].name);
+      }
       setTimeout(() => setPSuccessMsg(''), 4000);
     }, 400);
   };
@@ -845,8 +861,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       value=""
                       onChange={() => {}}
                       multiple
-                      galleryValues={pGallery ? pGallery.split(',').map((url) => url.trim()).filter(Boolean) : []}
-                      onGalleryChange={(urls) => setPGallery(urls.join(','))}
+                      galleryValues={pGallery}
+                      onGalleryChange={setPGallery}
                       darkMode={darkMode}
                       helpText="Add multiple photos for this product via URL link or by selecting photos from your gallery."
                     />

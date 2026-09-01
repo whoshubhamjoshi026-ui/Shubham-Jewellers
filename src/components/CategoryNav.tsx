@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Category, Gender, Purity, CategoryItem } from '../types';
-import { Coins, Sparkles, Gem, Shield, Crown, Filter, Check } from 'lucide-react';
+import { Coins, Sparkles, Gem, Shield, Crown, Filter } from 'lucide-react';
 
 interface CategoryNavProps {
   selectedCategory: string;
@@ -27,6 +27,8 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
   darkMode,
   customCategories = ['Gold', 'Diamond', 'Silver', 'Coins', 'Solitaires'],
 }) => {
+  const [failedCatImages, setFailedCatImages] = useState<Record<string, boolean>>({});
+
   const normalizedCategories: { id: string; name: string; image?: string }[] = [
     { id: 'cat-all', name: 'All' },
     ...customCategories.map((c: CategoryItem | string, idx: number) =>
@@ -36,9 +38,23 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
     ),
   ];
 
-  const getCategoryIcon = (name: string, image?: string) => {
-    if (image) {
-      return <img src={image} alt={name} referrerPolicy="no-referrer" className="w-5 h-5 rounded-full object-cover" />;
+  const getCategoryIcon = (name: string, image?: string, catId?: string) => {
+    const isImageFailed = catId ? failedCatImages[catId] : false;
+    if (image && !isImageFailed) {
+      return (
+        <img
+          src={image}
+          alt={name}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          onError={() => {
+            if (catId) {
+              setFailedCatImages((prev) => ({ ...prev, [catId]: true }));
+            }
+          }}
+          className="w-5 h-5 rounded-full object-cover shrink-0 aspect-square"
+        />
+      );
     }
     switch (name.toLowerCase()) {
       case 'gold':
@@ -63,12 +79,13 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
       <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-7 gap-2 sm:gap-2.5 mb-3.5">
         {normalizedCategories.map((catObj, idx) => {
           const catName = catObj.name;
+          const catKey = catObj.id || `${catName}-${idx}`;
           const isActive = selectedCategory === catName;
           return (
             <button
-              key={catObj.id || `${catName}-${idx}`}
+              key={catKey}
               onClick={() => setSelectedCategory(catName)}
-              className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center transition-all duration-300 transform active:scale-95 ${
+              className={`p-2 sm:p-2.5 rounded-2xl border flex flex-col items-center justify-center transition-all duration-300 transform active:scale-95 cursor-pointer ${
                 isActive
                   ? 'bg-gradient-to-b from-[#4A0E17] to-[#30050D] text-[#F3E5AB] border-[#D4AF37] shadow-luxury font-bold scale-[1.02] ring-1 ring-[#D4AF37]/50'
                   : darkMode
@@ -77,13 +94,13 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
               }`}
             >
               <div
-                className={`p-2 rounded-full mb-1 transition-transform duration-300 ${
+                className={`p-2 rounded-full mb-1 transition-transform duration-300 flex items-center justify-center w-8 h-8 ${
                   isActive
                     ? 'bg-[#D4AF37]/25 text-[#F3E5AB] scale-105 shadow-xs'
                     : 'bg-amber-100/70 dark:bg-zinc-800 text-amber-900 dark:text-amber-300'
                 }`}
               >
-                {getCategoryIcon(catName, catObj.image)}
+                {getCategoryIcon(catName, catObj.image, catKey)}
               </div>
               <span className="text-[11px] font-cinzel tracking-wider truncate w-full text-center">
                 {catName === 'All' ? 'All Jewels' : catName}
@@ -110,7 +127,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
             <button
               key={g}
               onClick={() => setSelectedGender(g)}
-              className={`px-2.5 py-1 rounded-full text-[10.5px] font-medium transition-all shrink-0 active:scale-95 ${
+              className={`px-2.5 py-1 rounded-full text-[10.5px] font-medium transition-all shrink-0 active:scale-95 cursor-pointer ${
                 selectedGender === g
                   ? 'bg-gradient-to-r from-[#ECC86A] to-[#D4AF37] text-[#2B050D] font-bold shadow-xs'
                   : darkMode
@@ -130,7 +147,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
             <button
               key={p}
               onClick={() => setSelectedPurity(p)}
-              className={`px-2.5 py-1 rounded-full text-[10.5px] font-medium transition-all shrink-0 active:scale-95 ${
+              className={`px-2.5 py-1 rounded-full text-[10.5px] font-medium transition-all shrink-0 active:scale-95 cursor-pointer ${
                 selectedPurity === p
                   ? 'bg-[#4A0E17] text-[#F3E5AB] border border-[#D4AF37] font-bold shadow-xs'
                   : darkMode

@@ -39,15 +39,26 @@ import { WhatsAppInquiryModal } from './components/WhatsAppInquiry';
 import { Footer } from './components/Footer';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { JewelleryLoader } from './components/JewelleryLoader';
-import { initialGoldRates, initialBanners, initialBottomBanner, initialCategoryItems, initialProducts, initialVersionInfo, initialCompanyInfo, initialDrawerConfig, initialFooterConfig } from './data/initialData';
+
+import {
+  initialGoldRates,
+  initialBanners,
+  initialBottomBanner,
+  initialCategoryItems,
+  initialProducts,
+  initialVersionInfo,
+  initialCompanyInfo,
+  initialDrawerConfig,
+  initialFooterConfig
+} from './data/initialData';
 import { calculateProductPrice } from './utils/priceCalculator';
 import { safeFetchJson } from './utils/safeFetch';
-import { Heart, Sparkles, SlidersHorizontal, ArrowUpRight } from 'lucide-react';
+
+import { Heart, Sparkles, SlidersHorizontal, ArrowUpRight, X } from 'lucide-react';
 
 export default function App() {
   // Toast Notification State
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
   const addToast = (title: string, description?: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
     setToasts((prev) => [...prev, { id, title, description, type }]);
@@ -87,7 +98,6 @@ export default function App() {
       isLoggedIn: false,
     };
   });
-
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
 
   // Role Control (Invisible Admin Access)
@@ -98,7 +108,6 @@ export default function App() {
       return false;
     }
   });
-
   const setIsAdmin = (val: boolean) => {
     setIsAdminState(val);
     try {
@@ -145,7 +154,9 @@ export default function App() {
   const [bottomTab, setBottomTab] = useState<'home' | 'jew_plans' | 'digi_gold' | 'gifting' | 'admin'>('home');
   const [cartOpen, setCartOpen] = useState<boolean>(false);
   const [wishlistOpen, setWishlistOpen] = useState<boolean>(false);
+
   const [activeSection, setActiveSection] = useState<'catalog' | 'scheme'>('catalog');
+
   const [isCategoryLoading, setIsCategoryLoading] = useState<boolean>(false);
   const [isSectionLoading, setIsSectionLoading] = useState<boolean>(false);
 
@@ -172,15 +183,8 @@ export default function App() {
   const [wishlist, setWishlist] = useState<Product[]>([]);
 
   // Zero Data Loss Account Sync: Restore remote user data on login or load
-  // FIXED: fetches products fresh (via /api/products) at restore time instead
-  // of relying on whatever "products" was already in memory — previously this
-  // could still be the hardcoded defaults if the catalog hadn't finished
-  // loading yet, which silently caused the wishlist to restore as empty.
-  // Also introduces `dataRestored`, which the save-effect below now waits on,
-  // so it never overwrites the server's saved cart/wishlist with an empty one
-  // before this restore has actually finished (that race was wiping data).
   const [dataRestored, setDataRestored] = useState<boolean>(false);
-
+  
   useEffect(() => {
     if (user.isLoggedIn && user.email) {
       setDataRestored(false);
@@ -190,28 +194,24 @@ export default function App() {
             safeFetchJson<{ success?: boolean; userData?: any }>(`/api/user-data/${encodeURIComponent(user.email)}`),
             safeFetchJson<{ success?: boolean; products?: Product[] }>('/api/products'),
           ]);
-
+          
           const freshProducts = (productsRes?.success && productsRes.products) ? productsRes.products : products;
 
           if (userDataRes?.success && userDataRes.userData) {
             const ud = userDataRes.userData;
             if (ud.profile) setUser((prev) => ({ ...prev, ...ud.profile }));
-            // Always set cart/wishlist from this user's saved data — including
-            // resetting to empty when they have none saved, so a user with an
-            // empty saved cart/wishlist never keeps seeing leftovers from
-            // whoever was previously logged in on this device.
             setCart(ud.cart && ud.cart.length > 0 ? ud.cart : []);
+            
             const restoredWish = ud.wishlistIds && ud.wishlistIds.length > 0
               ? freshProducts.filter((p: Product) => ud.wishlistIds.includes(p.id))
               : [];
             setWishlist(restoredWish);
           } else {
-            // No saved data for this user at all — start clean.
             setCart([]);
             setWishlist([]);
           }
         } catch (e) {
-          // ignore — keep whatever was already in memory
+          // ignore
         } finally {
           setDataRestored(true);
         }
@@ -222,11 +222,9 @@ export default function App() {
   }, [user.email, user.isLoggedIn]);
 
   // Sync user state to remote backend and local storage
-  // FIXED: added the `dataRestored` guard so this never fires with an empty
-  // cart/wishlist right after login, before the restore effect above has had
-  // a chance to pull the user's saved data from the server.
   useEffect(() => {
     localStorage.setItem('sj_user', JSON.stringify(user));
+    
     if (user.isLoggedIn && user.email && dataRestored) {
       safeFetchJson('/api/user-data', {
         method: 'POST',
@@ -257,23 +255,47 @@ export default function App() {
           safeFetchJson('/api/footer-config'),
         ]);
 
-        if (ratesRes?.success && ratesRes.rates) setRates(ratesRes.rates);
-        if (productsRes?.success && productsRes.products) setProducts(productsRes.products);
-        if (bannersRes?.success && bannersRes.banners) setBanners(bannersRes.banners);
-        if (versionRes?.success && versionRes.versionInfo) setVersionInfo(versionRes.versionInfo);
-        if (companyRes?.success && companyRes.companyInfo) setCompanyInfo(companyRes.companyInfo);
+        // ==========================================
+        // FIX: Deep Compare objects to prevent layout 
+        // shifts and continuous DOM remounts
+        // ==========================================
+        
+        if (ratesRes?.success && ratesRes.rates) {
+          setRates(prev => JSON.stringify(prev) === JSON.stringify(ratesRes.rates) ? prev : ratesRes.rates);
+        }
+        
+        if (productsRes?.success && productsRes.products) {
+          setProducts(prev => JSON.stringify(prev) === JSON.stringify(productsRes.products) ? prev : productsRes.products);
+        }
+        
+        if (bannersRes?.success && bannersRes.banners) {
+          setBanners(prev => JSON.stringify(prev) === JSON.stringify(bannersRes.banners) ? prev : bannersRes.banners);
+        }
+        
+        if (versionRes?.success && versionRes.versionInfo) {
+          setVersionInfo(prev => JSON.stringify(prev) === JSON.stringify(versionRes.versionInfo) ? prev : versionRes.versionInfo);
+        }
+        
+        if (companyRes?.success && companyRes.companyInfo) {
+          setCompanyInfo(prev => JSON.stringify(prev) === JSON.stringify(companyRes.companyInfo) ? prev : companyRes.companyInfo);
+        }
+        
         if (catRes?.success && Array.isArray(catRes.categories) && catRes.categories.length > 0) {
-          setCustomCategories(catRes.categories);
+          setCustomCategories(prev => JSON.stringify(prev) === JSON.stringify(catRes.categories) ? prev : catRes.categories);
         }
+        
         if (bbRes?.success && bbRes.bottomBanner) {
-          setBottomBanner(bbRes.bottomBanner);
+          setBottomBanner(prev => JSON.stringify(prev) === JSON.stringify(bbRes.bottomBanner) ? prev : bbRes.bottomBanner);
         }
+        
         if (drawerRes?.success && drawerRes.drawerConfig) {
-          setDrawerConfig(drawerRes.drawerConfig);
+          setDrawerConfig(prev => JSON.stringify(prev) === JSON.stringify(drawerRes.drawerConfig) ? prev : drawerRes.drawerConfig);
         }
+        
         if (footerRes?.success && footerRes.footerConfig) {
-          setFooterConfig(footerRes.footerConfig);
+          setFooterConfig(prev => JSON.stringify(prev) === JSON.stringify(footerRes.footerConfig) ? prev : footerRes.footerConfig);
         }
+
       } catch (err) {
         console.warn('Backend offline, using local state');
       }
@@ -288,7 +310,6 @@ export default function App() {
   const filteredProducts = useMemo(() => {
     let result = products.filter((p) => {
       const price = calculateProductPrice(p, rates).totalPrice;
-
       if (selectedCategory !== 'All' && p.category !== selectedCategory) return false;
       if (selectedGender !== 'All' && p.gender !== selectedGender) return false;
       if (selectedPurity !== 'All' && p.purity !== selectedPurity) return false;
@@ -296,7 +317,7 @@ export default function App() {
 
       if (searchTerm.trim() !== '') {
         const q = searchTerm.toLowerCase().trim();
-
+        
         if (q === 'necklace' || q === 'necklaces') {
           return (
             p.title.toLowerCase().includes('necklace') ||
@@ -306,23 +327,18 @@ export default function App() {
             p.description.toLowerCase().includes('necklace')
           );
         }
-
         if (q === 'ring' || q === 'rings' || q === 'solitaire ring') {
           return p.title.toLowerCase().includes('ring') || p.description.toLowerCase().includes('ring');
         }
-
         if (q === 'bangle' || q === 'bangles' || q === 'kadas') {
           return p.title.toLowerCase().includes('bangle') || p.description.toLowerCase().includes('bangle');
         }
-
         if (q === 'bracelet' || q === 'bracelets') {
           return p.title.toLowerCase().includes('bracelet') || p.description.toLowerCase().includes('bracelet');
         }
-
         if (q === 'coin' || q === 'coins' || q === 'gold coin') {
           return p.category.toLowerCase().includes('coins') || p.title.toLowerCase().includes('coin');
         }
-
         if (q === 'earring' || q === 'earrings' || q === 'jhumka') {
           return p.title.toLowerCase().includes('earring') || p.description.toLowerCase().includes('earring');
         }
@@ -334,7 +350,6 @@ export default function App() {
           p.description.toLowerCase().includes(q)
         );
       }
-
       return true;
     });
 
@@ -437,7 +452,7 @@ export default function App() {
         return;
       }
     } catch (e) {}
-
+    
     const newP: Product = {
       id: productData.id || `sj-${Date.now()}`,
       title: productData.title || 'New Gold Jewellery',
@@ -456,7 +471,6 @@ export default function App() {
       inStock: productData.inStock ?? true,
       hallmarkCertified: true,
     };
-
     setProducts((prev) => {
       const exists = prev.some((p) => p.id === newP.id);
       if (exists) return prev.map((p) => (p.id === newP.id ? { ...p, ...newP } : p));
@@ -480,7 +494,6 @@ export default function App() {
         return;
       }
     } catch (e) {}
-
     setProducts((prev) => prev.filter((p) => p.id !== id));
     if (selectedProductDetail && selectedProductDetail.id === id) {
       setSelectedProductDetail(null);
@@ -507,7 +520,6 @@ export default function App() {
       throw new Error(data?.message || 'Backend rejected banner save request');
     } catch (e: any) {
       console.error('[Add Banner Error]', e);
-      // Fallback local update if network is unavailable
       setBanners((prev) => [...prev, banner]);
       addToast('Banner Save Warning', 'Could not sync banner to server database. Kept in active session only.', 'error');
     }
@@ -530,7 +542,6 @@ export default function App() {
       throw new Error(data?.message || 'Backend rejected banner delete request');
     } catch (e: any) {
       console.error('[Delete Banner Error]', e);
-      // Fallback local update if network is unavailable
       setBanners((prev) => prev.filter((b) => b.id !== id));
       addToast('Banner Delete Warning', 'Could not delete banner from server database. Removed from active session only.', 'error');
     }
@@ -803,7 +814,7 @@ export default function App() {
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-16 bg-amber-50/50 dark:bg-zinc-900 rounded-2xl border border-dashed border-amber-300 dark:border-zinc-800">
                 <p className="text-base font-bold text-amber-950 dark:text-amber-300 mb-1">
-                  Not Found — This item is currently not in stock.
+                  Not Found   This item is currently not in stock.
                 </p>
                 <p className="text-xs text-amber-800/80 dark:text-zinc-400">
                   We could not find any matching or similar items in our live inventory.
@@ -857,7 +868,7 @@ export default function App() {
         user={user}
         setUser={setUser}
         onLogout={() => {
-          // ✅ FIXED: Clear cart & wishlist on logout so nothing lingers on
+          //   FIXED: Clear cart & wishlist on logout so nothing lingers on
           // this device for the next login (own or someone else's).
           setCart([]);
           setWishlist([]);
@@ -977,7 +988,7 @@ export default function App() {
                 <span>Your Saved Wishlist ({wishlist.length})</span>
               </h3>
               <button onClick={() => setWishlistOpen(false)} className="font-bold text-xs p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 transition-all">
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -996,7 +1007,7 @@ export default function App() {
                       <img src={item.image} alt={item.title} className="w-14 h-14 object-cover rounded-xl border border-amber-200/60 dark:border-zinc-700" />
                       <div>
                         <strong className={`block font-playfair font-bold text-sm line-clamp-1 ${darkMode ? 'text-zinc-100' : 'text-zinc-900'}`}>{item.title}</strong>
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">{item.purity} • {item.weightGrams}g</span>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">{item.purity}   {item.weightGrams}g</span>
                       </div>
                     </div>
                     <button
@@ -1059,7 +1070,7 @@ export default function App() {
             address: { street: '', city: '', state: '', pincode: '' },
             isLoggedIn: false,
           });
-          // ✅ FIXED: Clear cart & wishlist here too — this is the second
+          //   FIXED: Clear cart & wishlist here too   this is the second
           // logout entry point (hamburger side drawer), which had the same
           // stale-data bug as the AuthModal logout button.
           setCart([]);
@@ -1127,6 +1138,7 @@ export default function App() {
           window.location.reload();
         }}
       />
+
       {/* Toast Feedback Container */}
       <ToastContainer
         toasts={toasts}

@@ -1,21 +1,32 @@
 import { GoldRates, Product, Purity } from '../types';
 
-export function getRatePerGram(purity: Purity, rates: GoldRates): number {
+const defaultFallbackRates: GoldRates = {
+  gold24k: 7350,
+  gold22k: 6735,
+  gold18k: 5510,
+  silver: 88,
+  lastUpdated: 'Live',
+  trend24k: 0,
+  trendSilver: 0,
+};
+
+export function getRatePerGram(purity: Purity, rates?: GoldRates): number {
+  const safeRates = rates && rates.gold24k ? rates : defaultFallbackRates;
   switch (purity) {
     case '24K':
-      return rates.gold24k;
+      return safeRates.gold24k || 7350;
     case '22K':
-      return rates.gold22k;
+      return safeRates.gold22k || 6735;
     case '18K':
-      return rates.gold18k;
+      return safeRates.gold18k || 5510;
     case '14K':
-      return Math.round(rates.gold18k * 0.8);
+      return Math.round((safeRates.gold18k || 5510) * 0.8);
     case '999 Silver':
-      return rates.silver;
+      return safeRates.silver || 88;
     case '925 Silver':
-      return Math.round(rates.silver * 0.93);
+      return Math.round((safeRates.silver || 88) * 0.93);
     default:
-      return rates.gold22k;
+      return safeRates.gold22k || 6735;
   }
 }
 
@@ -31,35 +42,41 @@ export interface PriceBreakdown {
   totalPrice: number;
 }
 
-export function calculateProductPrice(product: Product, rates: GoldRates): PriceBreakdown {
-  const ratePerGram = getRatePerGram(product.purity, rates);
-  const metalCost = product.weightGrams * ratePerGram;
+export function calculateProductPrice(product: Product, rates?: GoldRates): PriceBreakdown {
+  const safePurity = product?.purity || '22K';
+  const ratePerGram = getRatePerGram(safePurity, rates);
+  const weightGrams = Number(product?.weightGrams) || 0;
+  const metalCost = weightGrams * ratePerGram;
   
   // Making charges can be percentage or base fixed
-  const percentMaking = metalCost * (product.makingChargePercent / 100);
-  const makingCharges = Math.max(product.baseMakingCharge, percentMaking);
+  const makingChargePercent = Number(product?.makingChargePercent) || 12;
+  const baseMakingCharge = Number(product?.baseMakingCharge) || 200;
+  const percentMaking = metalCost * (makingChargePercent / 100);
+  const makingCharges = Math.max(baseMakingCharge, percentMaking);
   
   const subtotal = metalCost + makingCharges;
   const gstAmount = subtotal * 0.03; // 3% standard Indian GST on Gold/Jewellery
   const totalPrice = Math.round(subtotal + gstAmount);
 
   return {
-    purity: product.purity,
-    weightGrams: product.weightGrams,
+    purity: safePurity,
+    weightGrams,
     ratePerGram,
     metalCost: Math.round(metalCost),
-    makingChargePercent: product.makingChargePercent,
+    makingChargePercent,
     makingCharges: Math.round(makingCharges),
     subtotal: Math.round(subtotal),
     gstAmount: Math.round(gstAmount),
-    totalPrice,
+    totalPrice: Math.max(totalPrice, 0),
   };
 }
 
 export function formatINR(amount: number): string {
+  const num = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(num);
 }
+
