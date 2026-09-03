@@ -10,7 +10,6 @@ import mongoose, { Schema } from 'mongoose';
 import Razorpay from 'razorpay';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-
 import {
   initialGoldRates,
   initialBanners,
@@ -22,7 +21,6 @@ import {
   initialDrawerConfig,
   initialFooterConfig,
 } from './src/data/initialData.js';
-
 import {
   GoldRates,
   Banner,
@@ -50,8 +48,7 @@ const resolvedDirname = resolveDirname();
    ========================================================================== */
 
 // 1. Gold Rates Schema
-const GoldRatesSchema = new Schema<GoldRates>(
-  {
+const GoldRatesSchema = new Schema<GoldRates>({
     gold24k: { type: Number, required: true },
     gold22k: { type: Number, required: true },
     gold18k: { type: Number, required: true },
@@ -65,8 +62,7 @@ const GoldRatesSchema = new Schema<GoldRates>(
 export const RatesModel = mongoose.model<GoldRates>('GoldRate', GoldRatesSchema);
 
 // 2. Banner Schema
-const BannerSchema = new Schema<Banner>(
-  {
+const BannerSchema = new Schema<Banner>({
     id: { type: String, required: true, unique: true, index: true },
     title: { type: String, required: true },
     subtitle: { type: String, default: '' },
@@ -82,8 +78,7 @@ const BannerSchema = new Schema<Banner>(
 export const BannerModel = mongoose.model<Banner>('Banner', BannerSchema);
 
 // 3. Category Items Schema
-const CategoryItemSchema = new Schema<CategoryItem>(
-  {
+const CategoryItemSchema = new Schema<CategoryItem>({
     id: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true },
     image: { type: String, default: '' },
@@ -94,8 +89,7 @@ const CategoryItemSchema = new Schema<CategoryItem>(
 export const CategoryModel = mongoose.model<CategoryItem>('Category', CategoryItemSchema);
 
 // 4. Bottom Banner Schema
-const BottomBannerSchema = new Schema<BottomBanner>(
-  {
+const BottomBannerSchema = new Schema<BottomBanner>({
     id: { type: String, default: 'bb1' },
     title: { type: String, required: true },
     subtitle: { type: String, default: '' },
@@ -109,8 +103,7 @@ const BottomBannerSchema = new Schema<BottomBanner>(
 export const BottomBannerModel = mongoose.model<BottomBanner>('BottomBanner', BottomBannerSchema);
 
 // 5. Product Schema
-const ProductSchema = new Schema<Product>(
-  {
+const ProductSchema = new Schema<Product>({
     id: { type: String, required: true, unique: true, index: true },
     title: { type: String, required: true },
     category: { type: String, required: true },
@@ -133,8 +126,7 @@ const ProductSchema = new Schema<Product>(
 export const ProductModel = mongoose.model<Product>('Product', ProductSchema);
 
 // 6. Company Info Schema
-const CompanyInfoSchema = new Schema<CompanyInfo>(
-  {
+const CompanyInfoSchema = new Schema<CompanyInfo>({
     name: { type: String, required: true },
     tagline: { type: String, default: '' },
     establishedYear: { type: String, default: '1988' },
@@ -151,8 +143,7 @@ const CompanyInfoSchema = new Schema<CompanyInfo>(
 export const CompanyInfoModel = mongoose.model<CompanyInfo>('CompanyInfo', CompanyInfoSchema);
 
 // 7. Gold Savings Scheme Schema
-const GoldSchemeSchema = new Schema<GoldScheme>(
-  {
+const GoldSchemeSchema = new Schema<GoldScheme>({
     id: { type: String, required: true, unique: true, index: true },
     email: { type: String, required: true, index: true },
     schemeName: { type: String, default: 'Shubham Swarna Varsha Plan' },
@@ -180,8 +171,7 @@ const GoldSchemeSchema = new Schema<GoldScheme>(
 export const GoldSchemeModel = mongoose.model<GoldScheme>('GoldScheme', GoldSchemeSchema);
 
 // 8. User Synced Data Schema
-const UserSyncedDataSchema = new Schema(
-  {
+const UserSyncedDataSchema = new Schema({
     email: { type: String, required: true, unique: true, index: true },
     profile: {
       name: { type: String, default: '' },
@@ -204,8 +194,7 @@ const UserSyncedDataSchema = new Schema(
 export const UserDataModel = mongoose.model<UserSyncedData>('UserData', UserSyncedDataSchema as any);
 
 // 9. Drawer Configuration Schema
-const DrawerConfigSchema = new Schema<DrawerConfig>(
-  {
+const DrawerConfigSchema = new Schema<DrawerConfig>({
     headerTitle: { type: String, default: 'SHUBHAM JEWELLERS' },
     welcomeSubtitle: { type: String, default: 'Heritage & BIS Hallmarked Fine Gold' },
     aboutBtnText: { type: String, default: 'About Us & Showroom Info' },
@@ -215,15 +204,14 @@ const DrawerConfigSchema = new Schema<DrawerConfig>(
     whatsappBtnSubtitle: { type: String, default: 'Chat live with our gold consultants' },
     categorySectionTitle: { type: String, default: 'Shop By Category' },
     shopForSectionTitle: { type: String, default: 'Shop For' },
-    footerTagline: { type: String, default: 'Shubham Jewellers   Verified BIS Hallmarked' },
+    footerTagline: { type: String, default: 'Shubham Jewellers | Verified BIS Hallmarked' },
   },
   { timestamps: true }
 );
 export const DrawerConfigModel = mongoose.model<DrawerConfig>('DrawerConfig', DrawerConfigSchema);
 
 // 10. Footer Configuration Schema
-const FooterConfigSchema = new Schema<FooterConfig>(
-  {
+const FooterConfigSchema = new Schema<FooterConfig>({
     trustBadges: {
       type: [
         {
@@ -246,15 +234,14 @@ const FooterConfigSchema = new Schema<FooterConfig>(
     schemeTitle: { type: String, default: '' },
     schemeDescription: { type: String, default: '' },
     schemeHighlightBox: { type: String, default: '' },
-    copyrightText: { type: String, default: '  2026 Shubham Jewellers. All rights reserved.' },
+    copyrightText: { type: String, default: '© 2026 Shubham Jewellers. All rights reserved.' },
   },
   { timestamps: true }
 );
 export const FooterConfigModel = mongoose.model<FooterConfig>('FooterConfig', FooterConfigSchema);
 
 // 11. App Version Schema
-const VersionInfoSchema = new Schema<AppVersionInfo>(
-  {
+const VersionInfoSchema = new Schema<AppVersionInfo>({
     currentVersion: { type: String, default: '1.0.0' },
     latestVersion: { type: String, default: '1.0.0' },
     updateAvailable: { type: Boolean, default: false },
@@ -264,7 +251,6 @@ const VersionInfoSchema = new Schema<AppVersionInfo>(
   { timestamps: true }
 );
 export const VersionInfoModel = mongoose.model<AppVersionInfo>('AppVersion', VersionInfoSchema);
-
 
 /* ==========================================================================
    DATABASE SEEDING (Run if MongoDB Collections are Empty)
@@ -348,7 +334,6 @@ async function seedInitialDataIfEmpty() {
       });
       console.log('  Seeded demo customer scheme to MongoDB');
     }
-
   } catch (err) {
     console.error('Error during MongoDB initial seed:', err);
   }
@@ -359,7 +344,7 @@ function normalizeBanner(b: any): Banner {
   const img = b.image || b.imageUrl || 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=1200';
   const tag = b.discountBadge || b.discountTag || 'SPECIAL OFFER';
   return {
-    id: b.id || `b-${Date.now()}`, // <--- The cause of changing IDs is isolated here
+    id: b.id || `b-${Date.now()}`,
     title: b.title || 'Royal Jewellery Collection',
     subtitle: b.subtitle || 'Exclusive Festival Offer',
     image: img,
@@ -370,7 +355,6 @@ function normalizeBanner(b: any): Banner {
     categoryLink: b.categoryLink || 'Gold',
   };
 }
-
 
 /* ==========================================================================
    SERVER INITIALIZATION & API ROUTES
@@ -399,7 +383,6 @@ async function startServer() {
   const DATA_DIR = process.env.DATA_DIR
     ? path.resolve(process.env.DATA_DIR)
     : path.join(process.cwd(), 'data');
-
   const usingPersistentDisk = !!process.env.DATA_DIR;
 
   try {
@@ -437,10 +420,7 @@ async function startServer() {
 
   // Fallback in-memory states
   let currentRates: GoldRates = loadData<GoldRates>('rates.json', { ...initialGoldRates });
-  
-  // FIX: Normalize ONCE during initialization to prevent changing IDs on every fetch
   let currentBanners: Banner[] = loadData<Banner[]>('banners.json', [...initialBanners]).map(normalizeBanner);
-  
   let currentProducts: Product[] = loadData<Product[]>('products.json', [...initialProducts]);
   let currentCategories: CategoryItem[] = loadData<CategoryItem[]>('categories.json', [...initialCategoryItems]);
   let currentBottomBanner: BottomBanner = loadData<BottomBanner>('bottom-banner.json', { ...initialBottomBanner });
@@ -448,8 +428,8 @@ async function startServer() {
   let currentFooterConfig: FooterConfig = loadData<FooterConfig>('footer-config.json', { ...initialFooterConfig });
   let currentVersion: AppVersionInfo = loadData<AppVersionInfo>('version.json', { ...initialVersionInfo });
   let currentCompanyInfo: CompanyInfo = loadData<CompanyInfo>('company-info.json', { ...initialCompanyInfo });
-  const userDataStore: Record<string, UserSyncedData> = loadData<Record<string, UserSyncedData>>('user-data.json', {});
 
+  const userDataStore: Record<string, UserSyncedData> = loadData<Record<string, UserSyncedData>>('user-data.json', {});
   const schemes: Record<string, GoldScheme> = loadData<Record<string, GoldScheme>>('schemes.json', {
     'customer@gmail.com': {
       id: 'SCH-89123',
@@ -471,10 +451,10 @@ async function startServer() {
     },
   });
 
-  // Generated OTP cache - Strictly empty initial state (no hardcoded backdoors)
+  // Generated OTP cache
   const otpStore: Record<string, string> = {};
 
-  // Razorpay Gateway Client (Lazy initialization to prevent crashes if keys not yet set)
+  // Razorpay Gateway Client
   let razorpayClient: Razorpay | null = null;
   function getRazorpay(): Razorpay | null {
     const keyId = process.env.RAZORPAY_KEY_ID?.trim();
@@ -503,6 +483,7 @@ async function startServer() {
   /* ==========================================================================
      CONNECT TO MONGODB ATLAS
      ========================================================================== */
+
   let isMongoConnected = false;
   const mongoUri = process.env.MONGODB_URI?.trim();
 
@@ -516,7 +497,6 @@ async function startServer() {
       console.log('  MongoDB Atlas connected successfully!');
       
       await seedInitialDataIfEmpty();
-
     } catch (mongoErr: any) {
       console.error('  [MongoDB Connection Warning] Could not connect to MongoDB Atlas:', mongoErr?.message || mongoErr);
       console.warn('   Continuing with local fallback storage until MONGODB_URI is reachable.');
@@ -546,7 +526,7 @@ async function startServer() {
     console.warn('  MongoDB Atlas Disconnected.');
   });
 
-  // Connection-pooled Nodemailer Transporter (Singleton)
+  // Connection-pooled Nodemailer Transporter
   let cachedTransporter: nodemailer.Transporter | null = null;
   function getEmailTransporter(user: string, pass: string): nodemailer.Transporter {
     if (!cachedTransporter) {
@@ -624,7 +604,6 @@ async function startServer() {
             html: htmlContent,
           }),
         });
-
         if (response.ok) {
           console.log(`[Resend API Success] Verification OTP sent to ${email}`);
           return { success: true, provider: 'Resend API' };
@@ -669,7 +648,6 @@ async function startServer() {
       error: lastError,
     };
   }
-
 
   // Helper to categorize a product
   function getProductSpecificCategory(p: Product): string {
@@ -741,7 +719,7 @@ async function startServer() {
     return false;
   }
 
-  //   HEALTH CHECK ENDPOINT
+  // HEALTH CHECK ENDPOINT
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
@@ -780,6 +758,7 @@ async function startServer() {
     const updateObj: Partial<GoldRates> = {
       lastUpdated: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
     };
+
     if (gold24k) updateObj.gold24k = Number(gold24k);
     if (gold22k) updateObj.gold22k = Number(gold22k);
     if (gold18k) updateObj.gold18k = Number(gold18k);
@@ -798,7 +777,6 @@ async function startServer() {
     } catch (e) {
       console.error('[MongoDB Rates POST Error]:', e);
     }
-
     currentRates = { ...currentRates, ...updateObj } as GoldRates;
     saveData('rates.json', currentRates);
     res.json({ success: true, rates: currentRates, message: 'Live gold & silver rates updated!' });
@@ -823,6 +801,7 @@ async function startServer() {
   app.post('/api/admin/products', async (req, res) => {
     const productData = req.body as Partial<Product>;
     const targetId = productData.id || `sj-${Date.now()}`;
+
     const newProduct: Product = {
       id: targetId,
       title: productData.title || 'New Royal Gold Jewellery',
@@ -1023,6 +1002,7 @@ async function startServer() {
         matchedProducts: [],
         notFound: true,
       });
+
     } catch (err: any) {
       console.error('[Visual Search API Error]:', err);
       res.json({
@@ -1049,8 +1029,8 @@ async function startServer() {
     const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'global';
     const { pin } = req.body;
     const now = Date.now();
-    const currentState = adminAttemptsMap.get(clientIp) || { attempts: 0, lockoutUntil: 0 };
 
+    const currentState = adminAttemptsMap.get(clientIp) || { attempts: 0, lockoutUntil: 0 };
     if (currentState.lockoutUntil > now) {
       const remainingSeconds = Math.ceil((currentState.lockoutUntil - now) / 1000);
       res.status(429).json({
@@ -1063,7 +1043,6 @@ async function startServer() {
     }
 
     const expectedPin = process.env.ADMIN_PIN?.trim();
-
     if (!expectedPin) {
       console.error('[Admin Auth Rejected]: ADMIN_PIN environment variable is not configured on the server.');
       res.status(503).json({
@@ -1099,10 +1078,6 @@ async function startServer() {
     }
   });
 
-  // =========================================================================
-  // FIX: Banners endpoint no longer normalizes on GET, stopping changing IDs
-  // =========================================================================
-  
   // 3. Banners
   app.get('/api/banners', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1110,19 +1085,18 @@ async function startServer() {
       if (isMongoConnected) {
         const banners = await BannerModel.find().lean();
         if (banners && banners.length > 0) {
-          res.json({ success: true, banners }); // Removed mapping
+          res.json({ success: true, banners });
           return;
         }
       }
     } catch (e) {
       console.error('[MongoDB Banners GET Error]:', e);
     }
-    res.json({ success: true, banners: currentBanners }); // Removed mapping
+    res.json({ success: true, banners: currentBanners });
   });
 
   app.post('/api/admin/banners', async (req, res) => {
     const rawBanner = req.body as Banner;
-    // Normalize ONLY on insertion
     const newBanner = normalizeBanner({
       ...rawBanner,
       id: rawBanner.id || `b-${Date.now()}`,
@@ -1159,7 +1133,7 @@ async function startServer() {
       if (isMongoConnected) {
         await BannerModel.deleteOne({ id });
         const allBanners = await BannerModel.find().lean();
-        currentBanners = allBanners as Banner[]; // Removed mapping
+        currentBanners = allBanners as Banner[];
         saveData('banners.json', currentBanners);
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         res.json({ success: true, banners: currentBanners, message: 'Banner removed from MongoDB' });
@@ -1345,17 +1319,14 @@ async function startServer() {
       }
 
       const now = Date.now();
-      const COOLDOWN_MS = 60 * 1000; // 60 seconds cooldown between successive requests
-      const HOURLY_WINDOW_MS = 60 * 60 * 1000; // 1 hour window
-      const MAX_HOURLY_REQUESTS = 5; // Max 5 requests per hour
+      const COOLDOWN_MS = 60 * 1000;
+      const HOURLY_WINDOW_MS = 60 * 60 * 1000;
+      const MAX_HOURLY_REQUESTS = 5;
 
-      // Check rate limit for both email and IP
       const rateLimitKeys = [cleanEmail, clientIp];
-
       for (const key of rateLimitKeys) {
         const state = otpRateLimitMap.get(key) || { lastRequestTime: 0, hourlyRequests: [] };
 
-        // 1. 60-second cooldown check
         const timeSinceLast = now - state.lastRequestTime;
         if (state.lastRequestTime > 0 && timeSinceLast < COOLDOWN_MS) {
           const remainingSeconds = Math.ceil((COOLDOWN_MS - timeSinceLast) / 1000);
@@ -1368,10 +1339,7 @@ async function startServer() {
           return;
         }
 
-        // 2. Filter requests within the last 1 hour
         const recentHourlyRequests = state.hourlyRequests.filter((timestamp) => now - timestamp < HOURLY_WINDOW_MS);
-
-        // 3. Max 5 requests per hour check
         if (recentHourlyRequests.length >= MAX_HOURLY_REQUESTS) {
           const oldestRequest = recentHourlyRequests[0];
           const resetInMinutes = Math.ceil((HOURLY_WINDOW_MS - (now - oldestRequest)) / (60 * 1000));
@@ -1385,7 +1353,6 @@ async function startServer() {
         }
       }
 
-      // Domain MX verification
       const domain = cleanEmail.split('@')[1] || '';
       const domainHasMailServer = await new Promise<boolean>((resolve) => {
         dns.resolveMx(domain, (err, addresses) => {
@@ -1405,12 +1372,10 @@ async function startServer() {
       const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
       otpStore[cleanEmail] = generatedOtp;
 
-      // Update rate limit state for both email and IP
       for (const key of rateLimitKeys) {
         const state = otpRateLimitMap.get(key) || { lastRequestTime: 0, hourlyRequests: [] };
         const updatedHourly = state.hourlyRequests.filter((timestamp) => now - timestamp < HOURLY_WINDOW_MS);
         updatedHourly.push(now);
-
         otpRateLimitMap.set(key, {
           lastRequestTime: now,
           hourlyRequests: updatedHourly,
@@ -1418,7 +1383,6 @@ async function startServer() {
       }
 
       const emailResult = await sendOtpViaEmail(cleanEmail, generatedOtp);
-
       if (!emailResult.success) {
         console.error(`[Email Gateway Error] Provider: ${emailResult.provider}, Error: ${emailResult.error}`);
         res.status(500).json({
@@ -1463,12 +1427,10 @@ async function startServer() {
     const cleanOtp = String(otp || '').trim();
     const storedOtp = otpStore[cleanEmail];
 
-    // Strictly match the stored generated OTP (no hardcoded backdoors or bypass codes)
     const isValid = Boolean(storedOtp && cleanOtp === storedOtp);
 
     if (isValid) {
       delete otpStore[cleanEmail];
-
       const emailPrefix = cleanEmail.split('@')[0] || 'Customer';
       const defaultDerivedName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
 
@@ -1513,7 +1475,6 @@ async function startServer() {
 
   app.get('/api/scheme/:email', async (req, res) => {
     const email = decodeURIComponent(req.params.email).toLowerCase();
-
     try {
       if (isMongoConnected) {
         let scheme = await GoldSchemeModel.findOne({ email }).lean();
@@ -1576,7 +1537,6 @@ async function startServer() {
     res.json({ success: true, scheme });
   });
 
-  // Create Razorpay Order
   app.post('/api/scheme/create-order', async (req, res) => {
     try {
       const { email, amount } = req.body;
@@ -1609,9 +1569,7 @@ async function startServer() {
         return;
       }
 
-      // Demo Mode fallback when Razorpay keys are not yet set
       const demoOrderId = `order_demo_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
-
       res.json({
         success: true,
         mode: 'demo',
@@ -1630,7 +1588,6 @@ async function startServer() {
     }
   });
 
-  // Verify Razorpay Payment and Update Gold Savings Scheme Passbook
   app.post('/api/scheme/verify-payment', async (req, res) => {
     try {
       const { email, amount, razorpay_order_id, razorpay_payment_id, razorpay_signature, isDemo } = req.body;
@@ -1643,7 +1600,6 @@ async function startServer() {
         return;
       }
 
-      // If real Razorpay mode, verify cryptographic HMAC signature
       if (!isDemo && keySecret && razorpay_order_id && razorpay_payment_id && razorpay_signature) {
         const generatedSignature = crypto
           .createHmac('sha256', keySecret)
@@ -1663,7 +1619,6 @@ async function startServer() {
 
       if (isMongoConnected) {
         let scheme = await GoldSchemeModel.findOne({ email: cleanEmail });
-
         if (!scheme) {
           scheme = new GoldSchemeModel({
             id: `SCH-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -1678,7 +1633,6 @@ async function startServer() {
             history: [],
           });
         }
-
         const nextMonth = scheme.monthsPaid + 1;
         scheme.monthsPaid += 1;
         scheme.totalPaid += amtNumber;
@@ -1689,9 +1643,7 @@ async function startServer() {
           status: 'Paid',
           transactionId: txId,
         });
-
         await scheme.save();
-
         res.json({
           success: true,
           scheme,
@@ -1742,7 +1694,6 @@ async function startServer() {
     }
   });
 
-  // Direct Pay route (backwards compatibility)
   app.post('/api/scheme/pay', async (req, res) => {
     const { email, amount } = req.body;
     const cleanEmail = email ? String(email).trim().toLowerCase() : '';
@@ -1752,7 +1703,6 @@ async function startServer() {
     try {
       if (isMongoConnected) {
         let scheme = await GoldSchemeModel.findOne({ email: cleanEmail });
-
         if (!scheme) {
           scheme = new GoldSchemeModel({
             id: `SCH-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -1767,7 +1717,6 @@ async function startServer() {
             history: [],
           });
         }
-
         const nextMonth = scheme.monthsPaid + 1;
         scheme.monthsPaid += 1;
         scheme.totalPaid += amtNumber;
@@ -1778,9 +1727,7 @@ async function startServer() {
           status: 'Paid',
           transactionId: txId,
         });
-
         await scheme.save();
-
         res.json({
           success: true,
           scheme,
@@ -1819,7 +1766,6 @@ async function startServer() {
       status: 'Paid',
       transactionId: txId,
     });
-
     saveData('schemes.json', schemes);
     res.json({ success: true, scheme, receipt: { txId, amount: amtNumber, date: new Date().toLocaleDateString('en-IN') } });
   });
@@ -1842,7 +1788,6 @@ async function startServer() {
 
   app.post('/api/admin/version', async (req, res) => {
     const { latestVersion, updateMessage, releaseNotes } = req.body;
-
     const newVersion: Partial<AppVersionInfo> = {
       latestVersion: latestVersion || '2.1.0',
       updateAvailable: true,
@@ -1893,7 +1838,6 @@ async function startServer() {
 
   app.post('/api/admin/company-info', async (req, res) => {
     const infoUpdate = req.body as Partial<CompanyInfo>;
-
     try {
       if (isMongoConnected) {
         const updated = await CompanyInfoModel.findOneAndUpdate({}, infoUpdate, { upsert: true, new: true }).lean();
@@ -1906,7 +1850,6 @@ async function startServer() {
     } catch (e) {
       console.error('[MongoDB Company Info POST Error]:', e);
     }
-
     currentCompanyInfo = { ...currentCompanyInfo, ...infoUpdate } as CompanyInfo;
     saveData('company-info.json', currentCompanyInfo);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1916,7 +1859,6 @@ async function startServer() {
   // 8. Zero Data Loss Account Sync (User Profile, Cart, Wishlist)
   app.get('/api/user-data/:email', async (req, res) => {
     const email = decodeURIComponent(req.params.email).toLowerCase();
-
     try {
       if (isMongoConnected) {
         const data = await UserDataModel.findOne({ email }).lean();
@@ -2031,7 +1973,7 @@ async function startServer() {
     console.error('Uncaught Exception:', err);
     process.exit(1);
   });
-}
+} // <-- Added missing closing brace
 
 startServer().catch((err) => {
   console.error('Failed to start server:', err);

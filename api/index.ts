@@ -14,7 +14,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-
 app.use(express.json());
 
 // Setup Persistence Directory (In Vercel serverless environment, use /tmp/data for ephemeral writing)
@@ -27,7 +26,7 @@ try {
   console.error('[Persistence Warning] Could not create data directory:', err);
 }
 
-// Safe file loader helper
+// Safe file loader helper function
 function loadData<T>(filename: string, defaultValue: T): T {
   const filePath = path.join(DATA_DIR, filename);
   try {
@@ -41,7 +40,7 @@ function loadData<T>(filename: string, defaultValue: T): T {
   return defaultValue;
 }
 
-// Safe file saver helper
+// Safe file saver helper function
 function saveData<T>(filename: string, data: T): void {
   const filePath = path.join(DATA_DIR, filename);
   try {
@@ -79,6 +78,7 @@ let currentBanners: Banner[] = loadData<Banner[]>('banners.json', [...initialBan
 let currentProducts: Product[] = loadData<Product[]>('products.json', [...initialProducts]);
 let currentVersion: AppVersionInfo = loadData<AppVersionInfo>('version.json', { ...initialVersionInfo });
 let currentCompanyInfo: CompanyInfo = loadData<CompanyInfo>('company-info.json', { ...initialCompanyInfo });
+
 const userDataStore: Record<string, UserSyncedData> = loadData<Record<string, UserSyncedData>>('user-data.json', {});
 const schemes: Record<string, GoldScheme> = loadData<Record<string, GoldScheme>>('schemes.json', initialSchemes);
 
@@ -216,9 +216,8 @@ app.post('/api/admin/verify-pin', (req, res) => {
   const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || 'global';
   const { pin } = req.body;
   const now = Date.now();
-
   const currentState = adminAttemptsMap.get(clientIp) || { attempts: 0, lockoutUntil: 0 };
-
+  
   if (currentState.lockoutUntil > now) {
     const remainingSeconds = Math.ceil((currentState.lockoutUntil - now) / 1000);
     res.status(429).json({
@@ -231,7 +230,6 @@ app.post('/api/admin/verify-pin', (req, res) => {
   }
 
   const expectedPin = process.env.ADMIN_PIN || '7788';
-
   if (pin && String(pin).trim() === expectedPin) {
     adminAttemptsMap.delete(clientIp);
     res.json({ success: true, message: 'Admin authenticated successfully' });
@@ -292,17 +290,13 @@ app.post('/api/auth/send-otp', async (req, res) => {
   try {
     const { email } = req.body;
     const cleanEmail = email ? String(email).trim().toLowerCase() : '';
-
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       res.status(400).json({ success: false, message: 'Invalid email address format.' });
       return;
     }
-
     const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
     otpStore[cleanEmail] = generatedOtp;
-
     const emailResult = await sendOtpViaEmail(cleanEmail, generatedOtp);
-
     if (!emailResult.success) {
       console.error(`[Email Gateway Error] Provider: ${emailResult.provider}, Error: ${emailResult.error}`);
       res.status(500).json({
@@ -311,7 +305,6 @@ app.post('/api/auth/send-otp', async (req, res) => {
       });
       return;
     }
-
     res.json({
       success: true,
       email: cleanEmail,
@@ -331,12 +324,10 @@ app.post('/api/auth/verify-otp', (req, res) => {
   const { email, otp, name, address } = req.body;
   const cleanEmail = email ? String(email).trim().toLowerCase() : '';
   const storedOtp = otpStore[cleanEmail];
-
   if (storedOtp && String(otp).trim() === storedOtp) {
     delete otpStore[cleanEmail];
     const emailPrefix = cleanEmail.split('@')[0] || 'Customer';
     const defaultDerivedName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-
     res.json({
       success: true,
       profile: {
@@ -401,10 +392,8 @@ app.post('/api/scheme/pay', (req, res) => {
     };
     schemes[cleanEmail] = scheme;
   }
-
   const nextMonth = scheme.monthsPaid + 1;
   const txId = `TXN${Math.floor(100000 + Math.random() * 900000)}`;
-
   scheme.monthsPaid += 1;
   scheme.totalPaid += Number(amount);
   scheme.history.unshift({
@@ -414,7 +403,6 @@ app.post('/api/scheme/pay', (req, res) => {
     status: 'Paid',
     transactionId: txId,
   });
-
   saveData('schemes.json', schemes);
   res.json({ success: true, scheme, receipt: { txId, amount, date: new Date().toLocaleDateString('en-IN') } });
 });
@@ -473,7 +461,6 @@ app.post('/api/user-data', (req, res) => {
   }
   const emailPrefix = cleanEmail.split('@')[0] || 'Customer';
   const defaultDerivedName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-
   userDataStore[cleanEmail] = {
     email: cleanEmail,
     profile: profile || { email: cleanEmail, name: defaultDerivedName, address: { street: '', city: '', state: '', pincode: '' }, isLoggedIn: true },

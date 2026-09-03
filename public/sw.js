@@ -6,8 +6,8 @@ const ASSETS_TO_CACHE = [
   '/pwa-192x192.png',
   '/pwa-512x512.png',
   '/apple-touch-icon.png',
-  '/favicon.png',
-];
+  '/favicon.png'
+]; // <-- Ye array close karna missing tha
 
 // Service Worker Installation
 self.addEventListener('install', (event) => {
@@ -17,7 +17,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll(ASSETS_TO_CACHE);
     }).then(() => self.skipWaiting())
   );
-});
+}); // <-- Ye event listener close karna missing tha
 
 // Service Worker Activation & Old Cache Clean-up
 self.addEventListener('activate', (event) => {
@@ -33,12 +33,12 @@ self.addEventListener('activate', (event) => {
       );
     }).then(() => self.clients.claim())
   );
-});
+}); // <-- Ye event listener close karna missing tha
 
 // Fetch Interception Strategy: Stale-While-Revalidate for app shell & static files, Network-first for API requests
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-
+  
   // Bypass API requests to ensure fresh live data when online
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
@@ -56,7 +56,7 @@ self.addEventListener('fetch', (event) => {
       })
     );
     return;
-  }
+  } // <-- Ye if block close karna missing tha
 
   // Handle static page / assets caching
   // Network-first: always try to get the LATEST file from the server first

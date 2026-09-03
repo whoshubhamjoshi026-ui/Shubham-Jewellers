@@ -1,4 +1,3 @@
-// Capacitor configuration for mobile builds
 export interface CapacitorConfig {
   appId: string;
   appName: string;
@@ -18,13 +17,13 @@ const config: CapacitorConfig = {
   appName: 'Shubham Jewellers',
   webDir: 'dist',
   server: {
-    url: 'https://sj-8c2l.onrender.com',
+    url: 'https://shubham-jewellers-kc8v.vercel.app/',
     cleartext: false,
     androidScheme: 'https',
   },
   android: {
     allowMixedContent: false,
-  },
+  }
 };
 
 export default config;

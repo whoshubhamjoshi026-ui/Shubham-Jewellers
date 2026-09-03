@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
-import { Mail, Lock, CheckCircle2, MapPin, User, ArrowRight, ShieldCheck, Sparkles, KeyRound, Loader2 } from 'lucide-react';
+import { Mail, Lock, CheckCircle2, MapPin, User, ArrowRight, ShieldCheck, Sparkles, KeyRound, Loader2, X } from 'lucide-react';
 import { safeFetchJson } from '../utils/safeFetch';
 import { ImageInputSelector } from './ImageInputSelector';
 
@@ -37,15 +37,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [state, setState] = useState(user.address?.state || '');
   const [pincode, setPincode] = useState(user.address?.pincode || '');
 
-  // ✅ FIXED: This modal never unmounts (App.tsx always renders it, only
-  // toggling `isOpen`), so `step`'s useState initializer only ran once, ever.
-  // Every time the modal re-opened later, `step` kept whatever value it had
-  // from the last time — which could disagree with the current `user.isLoggedIn`
-  // status (e.g. still 'profile' from a prior session while the user is now
-  // logged out, or vice versa). Since the profile step also requires
-  // `user.isLoggedIn` to render, a mismatch meant NONE of the three steps
-  // matched and the modal body rendered completely blank. Re-sync `step`
-  // every time the modal opens so it always reflects the real login state.
+  // FIXED: Sync step every time the modal opens so it always reflects the real login state.
   useEffect(() => {
     if (isOpen) {
       setStep(user.isLoggedIn ? 'profile' : 'email');
@@ -58,13 +50,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
-
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       const msg = 'Please enter a valid email address (e.g. name@gmail.com).';
       setErrorMsg(msg);
       return;
     }
-
     setErrorMsg('');
     setLoading(true);
 
@@ -96,13 +86,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
-
     if (!otpInput || otpInput.length < 4) {
       setErrorMsg('Please enter the 4-digit verification code.');
       return;
     }
-
     setLoading(true);
+
     try {
       const cleanEmail = email.trim().toLowerCase();
       const data = await safeFetchJson<{ success?: boolean; profile?: UserProfile; message?: string }>('/api/auth/verify-otp', {
@@ -152,11 +141,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       address: { street: '', city: '', state: '', pincode: '' },
       isLoggedIn: false,
     });
-    // ✅ FIXED: Clear this device's cart & wishlist state on logout so the next
-    // person who logs in on this browser (or the same person before their own
-    // data restores) never sees a stale cart/wishlist left behind by whoever
-    // was logged in before. Each user's real cart/wishlist is safely stored
-    // server-side per email and gets restored fresh after their own login.
     onLogout?.();
     setStep('email');
     setEmail('');
@@ -175,7 +159,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               className="absolute top-3.5 right-3.5 text-[#F3E5AB] hover:text-white p-1 rounded-full text-base font-bold transition-colors active:scale-90"
               title="Close"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
           )}
           <div className="w-9 h-9 mx-auto rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/60 flex items-center justify-center mb-1.5 shadow-sm">
@@ -306,7 +290,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     maxLength={4}
                     value={otpInput}
                     onChange={(e) => setOtpInput(e.target.value)}
-                    placeholder="••••"
+                    placeholder="****"
                     className="w-full py-2.5 text-center text-xl font-bold tracking-widest rounded-xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:border-[#4A0E17] dark:focus:border-[#D4AF37] focus:outline-none transition-all placeholder:text-zinc-300"
                     required
                   />
@@ -389,7 +373,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   />
                   <MapPin className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#4A0E17] dark:text-[#D4AF37]" />
                 </div>
-
                 <div className="grid grid-cols-3 gap-1.5">
                   <input
                     type="text"
